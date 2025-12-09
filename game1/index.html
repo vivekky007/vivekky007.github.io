@@ -280,7 +280,7 @@ function handlePeerMessage(msg) {
   }
   if (msg.type === 'start') {
     // server/host signaled start
-    startGameLocal(false);
+    startGameLocal(true);
     return;
   }
   if (msg.type === 'dir') {
@@ -330,4 +330,5 @@ log('Page ready — sent ready handshake to RN');
 </script>
 </body>
 </html>
+
 
