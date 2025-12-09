@@ -1,172 +1,131 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Two-Player Snake</title>
-  <style>
-    * { box-sizing: border-box; font-family: system-ui,Segoe UI,Roboto,Helvetica,Arial }
-    body { display: flex; gap: 20px; padding: 20px; }
-    #gameWrap { display: flex; flex-direction: column; gap: 8px; }
-    canvas { background: #0b2b1a; border: 4px solid #063; display: block; }
-    #ui { display: flex; gap: 8px; align-items: center; }
-    input, button { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
-    #log { width: 420px; height: 520px; overflow: auto; background: #111; color: #ddd; padding: 8px; border-radius: 6px; }
-    .hint { font-size: 12px; color: #666; }
-    #controls { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Two-Player Snake</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+body{display:flex;flex-direction:column;gap:10px;padding:20px}
+canvas{background:#0b2b1a;border:4px solid #063;display:block;margin:auto}
+#chatWrap{display:flex;flex-direction:column;gap:5px;width:400px;margin:auto}
+#chatLog{height:150px;overflow:auto;background:#111;color:#ddd;padding:8px;border-radius:6px}
+#chatInput{padding:8px;border-radius:6px;border:1px solid #ccc}
+button{padding:8px;border-radius:6px}
+</style>
 </head>
 <body>
-  <div id="gameWrap">
-    <canvas id="game" width="400" height="400"></canvas>
-    <div class="hint">
-      Controls: Player A = Arrow keys / Buttons, Player B = WASD.
-      Only host runs the game loop. Both players send direction inputs.
-    </div>
-    <div id="ui">
-      <input id="roomIdInput" placeholder="room id (eg. room-123)" />
-      <button id="createBtn">Create Room (host)</button>
-      <button id="joinBtn">Join Room</button>
-      <button id="startBtn">Start Game (host)</button>
-    </div>
-    <div id="controls">
-      <button id="btnUp" style="width:80px;height:50px;font-size:18px">⬆️</button>
-      <div style="display:flex; gap:10px;">
-        <button id="btnLeft" style="width:80px;height:50px;font-size:18px">⬅️</button>
-        <button id="btnRight" style="width:80px;height:50px;font-size:18px">➡️</button>
-      </div>
-      <button id="btnDown" style="width:80px;height:50px;font-size:18px">⬇️</button>
-    </div>
-    <div id="chatWrap" style="margin-top:20px; display:flex; flex-direction:column; gap:5px; width:400px;">
-      <div id="chatLog" style="height:150px; overflow:auto; background:#111; color:#ddd; padding:8px; border-radius:6px;"></div>
-      <input id="chatInput" placeholder="Type a message..." style="padding:8px; border-radius:6px; border:1px solid #ccc;" />
-      <button id="chatSendBtn" style="padding:8px; border-radius:6px;">Send</button>
-    </div>
-  </div>
 
-  <div id="log">Logs will appear here</div>
+<canvas id="game" width="400" height="400"></canvas>
+
+<div id="chatWrap">
+  <div id="chatLog"></div>
+  <input id="chatInput" placeholder="Type a message..." />
+  <button id="chatSendBtn">Send</button>
+</div>
 
 <script>
 /* ---------------- LOGGING ---------------- */
 function log(msg){
-  const logBox = document.getElementById('log');
-  const ln = document.createElement('div');
-  ln.textContent = '['+new Date().toLocaleTimeString()+'] '+msg;
-  logBox.appendChild(ln);
-  logBox.scrollTop = logBox.scrollHeight;
   console.log(msg);
 }
 
 /* ---------------- GAME SETUP ---------------- */
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const cell = 20;
-const cols = canvas.width / cell;
-const rows = canvas.height / cell;
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+const cell=20;
+const cols=canvas.width/cell;
+const rows=canvas.height/cell;
 
-let gameState = null;    // authoritative state
-let playerId = null;     // 'A' or 'B'
-let isHost = false;      
-let hostInterval = null;
+let gameState=null;
+let playerId=null; // 'A' or 'B'
+let isHost=false;
+let hostInterval=null;
 
-const colors = { A:'#4ce', B:'#e44', apple:'#ff0' };
+const colors={A:'#4ce',B:'#e44',apple:'#ff0'};
 
-const chatLog = document.getElementById('chatLog');
-const chatInput = document.getElementById('chatInput');
-const chatSendBtn = document.getElementById('chatSendBtn');
+const chatLog=document.getElementById('chatLog');
+const chatInput=document.getElementById('chatInput');
+const chatSendBtn=document.getElementById('chatSendBtn');
 
-function addChatMessage(sender, message) {
-  const div = document.createElement('div');
-  div.textContent = `${sender}: ${message}`;
+function addChatMessage(sender,message){
+  const div=document.createElement('div');
+  div.textContent=`${sender}: ${message}`;
   chatLog.appendChild(div);
-  chatLog.scrollTop = chatLog.scrollHeight;
+  chatLog.scrollTop=chatLog.scrollHeight;
 }
 
-// Sending a message
-chatSendBtn.onclick = () => {
-  const msg = chatInput.value.trim();
-  if(!msg) return;
-  if(!playerId) return log("You don't have a player ID yet");
-  
-  // send message to other peer via RN
-  broadcastMessage(msg);
-  
-  addChatMessage('You', msg);
-  chatInput.value = '';
+/* ---------------- RN BRIDGE ---------------- */
+function sendToNative(obj){
+  try{
+    if(window.ReactNativeWebView && window.ReactNativeWebView.postMessage){
+      window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+    }
+  }catch(e){ console.warn('postMessage failed',e); }
 }
 
-// Broadcast message function (to be implemented with RN signaling)
-function broadcastMessage(msg) {
-  sendToNative({
-    action: 'message',
-    player: playerId,
-    text: msg
-  });
-}
-
-// Receiving message from peer
-function handlePeerMessage(msg){
+window.onPeerMessage=function(msg){
   if(!msg) return;
 
-  if(msg.type === 'message') {
-    addChatMessage(msg.player, msg.text);
+  if(msg.type==='assign'){ 
+    playerId=msg.player; 
+    isHost=msg.player==='A';
+    log('Assigned player: '+playerId+(isHost?' (host)':''));
+    if(isHost && msg.startImmediately) startGame(true);
     return;
   }
 
-  // ... existing peer handlers
-  if(msg.type==='assign'){ playerId=msg.player; log('Assigned player: '+playerId); return; }
+  if(msg.type==='start'){ startGame(msg.host); return; }
   if(msg.type==='state'){ gameState=msg.state; render(gameState); return; }
-  if(msg.type==='start'){ startGameLocal(true); return; }
   if(msg.type==='dir' && msg.player && gameState?.snakes[msg.player]){
     const cur=gameState.snakes[msg.player].dir;
     const nd=msg.dir;
     if(!(cur.x===-nd.x && cur.y===-nd.y)) gameState.snakes[msg.player].dir=nd;
     return;
   }
-  if(msg.type==='gameover'){ log('Game over: '+(msg.reason||'unknown')); return; }
-  console.log('Unknown peer msg', msg);
+  if(msg.type==='message'){
+    addChatMessage(msg.player,msg.text);
+    return;
+  }
 }
 
-
+/* ---------------- GAME FUNCTIONS ---------------- */
 function resetState(){
   return {
     running:false,
     tick:0,
     snakes:{
-      A:{ dir:{x:1,y:0}, body:[{x:2,y:10},{x:1,y:10},{x:0,y:10}] },
-      B:{ dir:{x:-1,y:0}, body:[{x:17,y:9},{x:18,y:9},{x:19,y:9}] }
+      A:{dir:{x:1,y:0},body:[{x:2,y:10},{x:1,y:10},{x:0,y:10}]},
+      B:{dir:{x:-1,y:0},body:[{x:17,y:9},{x:18,y:9},{x:19,y:9}]}
     },
-    apple:{ x: Math.floor(cols/2), y: Math.floor(rows/2) }
+    apple:{x:Math.floor(cols/2),y:Math.floor(rows/2)}
   };
 }
 
-/* ---------------- START GAME ---------------- */
 function startGame(asHost=false){
-  gameState = resetState();
-  isHost = asHost;
-  playerId = asHost ? 'A' : (playerId || 'B');
-  gameState.running = true;
-  log('Game started. You are player '+playerId+(asHost?' (host)':''));
-  if(asHost) hostLoop();
+  if(gameState?.running) return;
+  gameState=resetState();
+  isHost=asHost;
+  if(isHost) hostLoop();
+  gameState.running=true;
 }
 
-/* ---------------- HOST LOOP ---------------- */
 function hostLoop(){
   if(hostInterval) clearInterval(hostInterval);
-  hostInterval = setInterval(()=>{
+  hostInterval=setInterval(()=>{
     tick();
     broadcastState();
-  }, 150);
+  },150);
 }
 
 function tick(){
   if(!gameState.running) return;
   gameState.tick++;
   for(const pid of ['A','B']){
-    const snake = gameState.snakes[pid];
-    const head = { x:snake.body[0].x+snake.dir.x, y:snake.body[0].y+snake.dir.y };
-    head.x = (head.x+cols)%cols;
-    head.y = (head.y+rows)%rows;
+    const snake=gameState.snakes[pid];
+    const head={x:snake.body[0].x+snake.dir.x, y:snake.body[0].y+snake.dir.y};
+    head.x=(head.x+cols)%cols;
+    head.y=(head.y+rows)%rows;
     snake.body.unshift(head);
     if(head.x===gameState.apple.x && head.y===gameState.apple.y) placeApple();
     else snake.body.pop();
@@ -179,10 +138,10 @@ function tick(){
 }
 
 function checkCollision(pid){
-  const s = gameState.snakes[pid];
-  const head = s.body[0];
+  const s=gameState.snakes[pid];
+  const head=s.body[0];
   for(let i=1;i<s.body.length;i++) if(s.body[i].x===head.x && s.body[i].y===head.y) return true;
-  const other = pid==='A'?gameState.snakes['B']:gameState.snakes['A'];
+  const other=pid==='A'?gameState.snakes['B']:gameState.snakes['A'];
   for(let j=0;j<other.body.length;j++) if(other.body[j].x===head.x && other.body[j].y===head.y) return true;
   return false;
 }
@@ -194,21 +153,20 @@ function placeApple(){
     y=Math.floor(Math.random()*rows);
     ok=true;
     for(const pid of ['A','B']){
-      if(gameState.snakes[pid].body.some(b=>b.x===x&&b.y===y)){ ok=false; break; }
+      if(gameState.snakes[pid].body.some(b=>b.x===x && b.y===y)){ ok=false; break; }
     }
   }while(!ok);
   gameState.apple={x,y};
 }
 
-/* ---------------- RENDER ---------------- */
 function render(state){
   if(!state) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
   drawCell(state.apple.x,state.apple.y,colors.apple);
   for(const pid of ['A','B']){
-    const sn = state.snakes[pid];
+    const sn=state.snakes[pid];
     for(let i=0;i<sn.body.length;i++){
-      const c = i===0?shade(colors[pid],-20):colors[pid];
+      const c=i===0?shade(colors[pid],-20):colors[pid];
       drawCell(sn.body[i].x,sn.body[i].y,c);
     }
   }
@@ -228,27 +186,21 @@ function shade(hex,percent){
 }
 
 /* ---------------- DIRECTION INPUT ---------------- */
-function applyDir(pid, dir){
-  const snake = gameState.snakes[pid];
+function applyDir(pid,dir){
+  const snake=gameState.snakes[pid];
   if(snake.dir.x===-dir.x && snake.dir.y===-dir.y) return;
   snake.dir=dir;
 }
 
 function sendDir(dir){
   if(isHost){
-    applyDir(playerId, dir);
+    applyDir(playerId,dir);
   } else {
-    // Non-host: send dir to host
-    broadcastDir(playerId, dir);
+    sendToNative({action:'dir',player:playerId,dir});
   }
 }
 
-document.getElementById("btnUp").onclick=()=>sendDir({x:0,y:-1});
-document.getElementById("btnDown").onclick=()=>sendDir({x:0,y:1});
-document.getElementById("btnLeft").onclick=()=>sendDir({x:-1,y:0});
-document.getElementById("btnRight").onclick=()=>sendDir({x:1,y:0});
-
-document.addEventListener('keydown', e=>{
+document.addEventListener('keydown',e=>{
   switch(e.key){
     case 'ArrowUp': sendDir({x:0,y:-1}); break;
     case 'ArrowDown': sendDir({x:0,y:1}); break;
@@ -261,32 +213,18 @@ document.addEventListener('keydown', e=>{
   }
 });
 
-/* ---------------- BROADCAST FUNCTIONS ---------------- */
-// These would normally be done via your RN signaling server
-function broadcastState(){
-  // e.g., RN sends state to all players
-  // Here just a placeholder:
-  console.log('Broadcast state', gameState);
+/* ---------------- CHAT ---------------- */
+chatSendBtn.onclick=()=>{
+  const msg=chatInput.value.trim();
+  if(!msg || !playerId) return;
+  addChatMessage('You',msg);
+  sendToNative({action:'message',player:playerId,text:msg});
+  chatInput.value='';
 }
-
-function broadcastDir(pid, dir){
-  // e.g., RN receives direction and applies to host
-  console.log('Broadcast dir from', pid, dir);
-}
-
-/* ---------------- UI BUTTONS ---------------- */
-document.getElementById('createBtn').onclick=()=>startGame(true);  // host
-document.getElementById('startBtn').onclick=()=>startGame(true);   // start game
-document.getElementById('joinBtn').onclick=()=>{
-  playerId='B';
-  log('Joined as Player B. Waiting for host to start.');
-};
 
 /* ---------------- INIT ---------------- */
 render(resetState());
-log('Ready to play. Create or join a room.');
-
+sendToNative({action:'ready'});
 </script>
 </body>
 </html>
-
