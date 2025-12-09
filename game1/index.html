@@ -37,6 +37,11 @@
       </div>
       <button id="btnDown" style="width:80px;height:50px;font-size:18px">⬇️</button>
     </div>
+    <div id="chatWrap" style="margin-top:20px; display:flex; flex-direction:column; gap:5px; width:400px;">
+      <div id="chatLog" style="height:150px; overflow:auto; background:#111; color:#ddd; padding:8px; border-radius:6px;"></div>
+      <input id="chatInput" placeholder="Type a message..." style="padding:8px; border-radius:6px; border:1px solid #ccc;" />
+      <button id="chatSendBtn" style="padding:8px; border-radius:6px;">Send</button>
+    </div>
   </div>
 
   <div id="log">Logs will appear here</div>
@@ -65,6 +70,63 @@ let isHost = false;
 let hostInterval = null;
 
 const colors = { A:'#4ce', B:'#e44', apple:'#ff0' };
+
+const chatLog = document.getElementById('chatLog');
+const chatInput = document.getElementById('chatInput');
+const chatSendBtn = document.getElementById('chatSendBtn');
+
+function addChatMessage(sender, message) {
+  const div = document.createElement('div');
+  div.textContent = `${sender}: ${message}`;
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+// Sending a message
+chatSendBtn.onclick = () => {
+  const msg = chatInput.value.trim();
+  if(!msg) return;
+  if(!playerId) return log("You don't have a player ID yet");
+  
+  // send message to other peer via RN
+  broadcastMessage(msg);
+  
+  addChatMessage('You', msg);
+  chatInput.value = '';
+}
+
+// Broadcast message function (to be implemented with RN signaling)
+function broadcastMessage(msg) {
+  sendToNative({
+    action: 'message',
+    player: playerId,
+    text: msg
+  });
+}
+
+// Receiving message from peer
+function handlePeerMessage(msg){
+  if(!msg) return;
+
+  if(msg.type === 'message') {
+    addChatMessage(msg.player, msg.text);
+    return;
+  }
+
+  // ... existing peer handlers
+  if(msg.type==='assign'){ playerId=msg.player; log('Assigned player: '+playerId); return; }
+  if(msg.type==='state'){ gameState=msg.state; render(gameState); return; }
+  if(msg.type==='start'){ startGameLocal(true); return; }
+  if(msg.type==='dir' && msg.player && gameState?.snakes[msg.player]){
+    const cur=gameState.snakes[msg.player].dir;
+    const nd=msg.dir;
+    if(!(cur.x===-nd.x && cur.y===-nd.y)) gameState.snakes[msg.player].dir=nd;
+    return;
+  }
+  if(msg.type==='gameover'){ log('Game over: '+(msg.reason||'unknown')); return; }
+  console.log('Unknown peer msg', msg);
+}
+
 
 function resetState(){
   return {
@@ -227,3 +289,4 @@ log('Ready to play. Create or join a room.');
 </script>
 </body>
 </html>
+
