@@ -25,6 +25,14 @@
       <button id="joinBtn">Join Room</button>
       <button id="startBtn">Start Game (host)</button>
     </div>
+    <div id="controls" style="margin-top: 20px; display: flex; flex-direction: column; align-items:center; gap:10px;">
+      <button id="btnUp" style="width:80px;height:50px;font-size:18px">⬆️</button>
+      <div style="display:flex; gap:10px;">
+        <button id="btnLeft" style="width:80px;height:50px;font-size:18px">⬅️</button>
+        <button id="btnRight" style="width:80px;height:50px;font-size:18px">➡️</button>
+      </div>
+      <button id="btnDown" style="width:80px;height:50px;font-size:18px">⬇️</button>
+    </div>
   </div>
 
   <div id="log">Logs will appear here</div>
@@ -296,27 +304,21 @@ function handlePeerMessage(msg) {
 }
 
 /* ------------ WebView -> RN (user input) ------------ */
-window.addEventListener('keydown', (e) => {
-  if (!playerId) return; // not assigned yet
-  let newDir = null;
-  if (playerId === 'A') {
-    if (e.key === 'ArrowUp') newDir = { x: 0, y: -1 };
-    if (e.key === 'ArrowDown') newDir = { x: 0, y: 1 };
-    if (e.key === 'ArrowLeft') newDir = { x: -1, y: 0 };
-    if (e.key === 'ArrowRight') newDir = { x: 1, y: 0 };
-  } else {
-    if (e.key === 'w') newDir = { x: 0, y: -1 };
-    if (e.key === 's') newDir = { x: 0, y: 1 };
-    if (e.key === 'a') newDir = { x: -1, y: 0 };
-    if (e.key === 'd') newDir = { x: 1, y: 0 };
-  }
-  if (newDir) {
-    e.preventDefault();
-    // Tell RN about the direction. RN will forward to peer/host.
-    // Include player if you want (optional). RN/host can also assign origin.
-    sendToNative({ action: 'dir', dir: newDir });
-  }
-});
+
+function sendDir(dir) {
+  if (!playerId) return;
+
+  // send to RN
+  sendToNative({ action: "dir", dir });
+
+  // optional: log
+  log("Dir sent: " + JSON.stringify(dir));
+}
+
+document.getElementById("btnUp").onclick = () => sendDir({ x: 0, y: -1 });
+document.getElementById("btnDown").onclick = () => sendDir({ x: 0, y: 1 });
+document.getElementById("btnLeft").onclick = () => sendDir({ x: -1, y: 0 });
+document.getElementById("btnRight").onclick = () => sendDir({ x: 1, y: 0 });
 
 /* ------------ initial render & handshake ------------ */
 render(resetState());
@@ -328,3 +330,4 @@ log('Page ready — sent ready handshake to RN');
 </script>
 </body>
 </html>
+
