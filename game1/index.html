@@ -12,20 +12,23 @@
     #ui{display:flex;gap:8px;align-items:center}
     input,button{padding:8px;border-radius:6px;border:1px solid #ccc}
     #log{width:420px;height:520px;overflow:auto;background:#111;color:#ddd;padding:8px;border-radius:6px}
-    .hint{font-size:12px;color:#666'}
+    .hint{font-size:12px;color:#666;}
   </style>
 </head>
 <body>
   <div id="gameWrap">
     <canvas id="game" width="400" height="400"></canvas>
-    <div class="hint">Controls: Player A = Arrow keys, Player B = WASD. Create or join a room using the buttons — signaling happens in the React Native host.</div>
+    <div class="hint">
+      Controls: Player A = Arrow keys / Buttons, Player B = WASD. 
+      Create or join a room using the buttons — signaling happens in the React Native host.
+    </div>
     <div id="ui">
       <input id="roomIdInput" placeholder="room id (eg. room-123)" />
       <button id="createBtn">Create Room (host)</button>
       <button id="joinBtn">Join Room</button>
       <button id="startBtn">Start Game (host)</button>
     </div>
-    <div id="controls" style="margin-top: 20px; display: flex; flex-direction: column; align-items:center; gap:10px;">
+    <div id="controls" style="margin-top:20px; display:flex; flex-direction:column; align-items:center; gap:10px;">
       <button id="btnUp" style="width:80px;height:50px;font-size:18px">⬆️</button>
       <div style="display:flex; gap:10px;">
         <button id="btnLeft" style="width:80px;height:50px;font-size:18px">⬅️</button>
@@ -38,24 +41,7 @@
   <div id="log">Logs will appear here</div>
 
 <script>
-/*
-  Modified to use React Native for signaling.
-  Protocol:
-    WebView -> RN via postMessage:
-      { action: 'createRoom', roomId }
-      { action: 'joinRoom',   roomId }
-      { action: 'start' }
-      { action: 'dir', dir: {x,y} }
-      { action: 'ready' }   // called when page loads to request assignment
-    RN -> WebView via injected onRNMessage(msg):
-      { fromRN: true, connected: boolean }
-      { fromPeer: true, payload: {...} }  // forwarded peer messages
-      or direct:
-      { type: 'assign', player: 'A' }
-      { type: 'state', state: {...} }
-      { type: 'start' }
-*/
-
+/* --------------------- RN BRIDGE --------------------- */
 function sendToNative(obj) {
   try {
     if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
@@ -68,270 +54,201 @@ function sendToNative(obj) {
   }
 }
 
+window.onRNMessage = function(msg) {
+  try {
+    if (msg?.fromPeer && msg.payload) { handlePeerMessage(msg.payload); return; }
+    if (msg?.type) { handlePeerMessage(msg); return; }
+    if (msg?.fromRN && typeof msg.connected !== 'undefined') {
+      log('RN connection status: ' + (msg.connected ? 'connected' : 'disconnected'));
+      return;
+    }
+    console.log('onRNMessage unknown:', msg);
+  } catch(e) {
+    console.warn('onRNMessage error', e);
+  }
+}
+
+/* --------------------- LOGGING --------------------- */
 function log(msg) {
   const logBox = document.getElementById('log');
   const ln = document.createElement('div');
   ln.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
   logBox.appendChild(ln);
   logBox.scrollTop = logBox.scrollHeight;
-  // also console
   console.log(msg);
 }
 
-/* ------------ UI wiring ------------ */
-const roomIdInput = document.getElementById('roomIdInput');
-const createBtn = document.getElementById('createBtn');
-const joinBtn = document.getElementById('joinBtn');
-const startBtn = document.getElementById('startBtn');
-
-createBtn.addEventListener('click', () => {
-  const id = (roomIdInput.value || '').trim();
-  if (!id) return log('Enter a room id first');
-  log('Requesting native: createRoom ' + id);
-  sendToNative({ action: 'createRoom', roomId: id });
-});
-
-joinBtn.addEventListener('click', () => {
-  const id = (roomIdInput.value || '').trim();
-  if (!id) return log('Enter a room id first');
-  log('Requesting native: joinRoom ' + id);
-  sendToNative({ action: 'joinRoom', roomId: id });
-});
-
-startBtn.addEventListener('click', () => {
-  log('Requesting native: start');
-  sendToNative({ action: 'start' });
-});
-
-/* ------------ Bridge: receive messages from RN ------------ */
-/*
-  RN will inject JS that calls window.onRNMessage(payload)
-  e.g. window.onRNMessage({ fromRN: true, connected: true })
-  or window.onRNMessage({ fromPeer: true, payload: { type:'state', state: {...} }})
-*/
-window.onRNMessage = function(msg) {
-  try {
-    // If RN wraps peer messages
-    if (msg && msg.fromPeer && msg.payload) {
-      handlePeerMessage(msg.payload);
-      return;
-    }
-
-    // Direct RN messages
-    if (msg && msg.type) {
-      handlePeerMessage(msg);
-      return;
-    }
-
-    // RN-level control messages (connectivity)
-    if (msg && msg.fromRN && typeof msg.connected !== 'undefined') {
-      log('RN connection status: ' + (msg.connected ? 'connected' : 'disconnected'));
-      // RN may send assignment separately
-      return;
-    }
-
-    // fallback: unknown
-    console.log('onRNMessage unknown:', msg);
-  } catch (e) {
-    console.warn('onRNMessage error', e);
-  }
-};
-
-/* ------------ Game logic (same as before, slightly adapted) ------------ */
+/* --------------------- GAME STATE --------------------- */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const cell = 20;
 const cols = canvas.width / cell;
 const rows = canvas.height / cell;
 
-let gameState = null; // authoritative state when provided
-let playerId = null;  // assigned by RN (A or B)
-let isHost = false;   // this page won't decide host; RN determines it.
+let gameState = null;
+let playerId = null;
+let isHost = false;
+let hostInterval = null;
 
-/* colors */
-const colors = { A: '#4ce', B: '#e44', apple: '#ff0' };
+const colors = { A:'#4ce', B:'#e44', apple:'#ff0' };
 
 function resetState() {
   return {
     running: false,
-    tick: 0,
-    snakes: {
-      A: { dir: { x: 1, y: 0 }, body: [{ x: 2, y: 10 }, { x: 1, y: 10 }, { x: 0, y: 10 }] },
-      B: { dir: { x: -1, y: 0 }, body: [{ x: 17, y: 9 }, { x: 18, y: 9 }, { x: 19, y: 9 }] }
+    tick:0,
+    snakes:{
+      A:{ dir:{x:1,y:0}, body:[{x:2,y:10},{x:1,y:10},{x:0,y:10}] },
+      B:{ dir:{x:-1,y:0}, body:[{x:17,y:9},{x:18,y:9},{x:19,y:9}] }
     },
-    apple: { x: Math.floor(cols / 2), y: Math.floor(rows / 2) }
+    apple:{ x: Math.floor(cols/2), y: Math.floor(rows/2) }
   };
 }
 
-function applyStateFromHost(state) {
-  gameState = state;
-  render(gameState);
-}
-
-function startGameLocal(asHost = false) {
+function startGameLocal(asHost=false){
   gameState = resetState();
-  playerId = asHost ? 'A' : (playerId || 'B'); // if RN assigned playerId, keep it
+  playerId = asHost ? 'A' : (playerId || 'B');
   gameState.running = true;
-  log('Game started locally. You are player ' + playerId + (asHost ? ' (host)' : ''));
-  if (asHost) hostLoop(); // note: with RN signaling the host will usually be RN side; still allow visual host loop if needed
+  log('Game started. You are player '+playerId + (asHost?' (host)':''));
+  if(asHost) hostLoop();
 }
 
-let hostInterval = null;
 function hostLoop() {
-  if (hostInterval) clearInterval(hostInterval);
-  hostInterval = setInterval(() => {
-    tickLocal();
-    // If this page is host and authoritative, it should ask RN to broadcast state:
-    // sendToNative({ action: 'state', state: gameState });
-    // But in our architecture, RN/Native is authoritative, so we generally expect host to be handled there.
-  }, 150);
+  if(hostInterval) clearInterval(hostInterval);
+  hostInterval = setInterval(()=>{ tickLocal() },150);
 }
 
 function tickLocal() {
-  if (!gameState || !gameState.running) return;
+  if(!gameState?.running) return;
   gameState.tick++;
-  for (const pid of ['A', 'B']) {
+  for(const pid of ['A','B']){
     const snake = gameState.snakes[pid];
-    const head = { x: snake.body[0].x + snake.dir.x, y: snake.body[0].y + snake.dir.y };
-    head.x = (head.x + cols) % cols;
-    head.y = (head.y + rows) % rows;
+    const head = { x:snake.body[0].x+snake.dir.x, y:snake.body[0].y+snake.dir.y };
+    head.x=(head.x+cols)%cols;
+    head.y=(head.y+rows)%rows;
     snake.body.unshift(head);
-    if (head.x === gameState.apple.x && head.y === gameState.apple.y) {
-      placeApple();
-    } else {
-      snake.body.pop();
-    }
+    if(head.x===gameState.apple.x && head.y===gameState.apple.y){ placeApple(); }
+    else{ snake.body.pop(); }
   }
-  if (checkCollision('A') || checkCollision('B')) {
-    gameState.running = false;
+  if(checkCollision('A')||checkCollision('B')){
+    gameState.running=false;
     log('Local collision detected');
   }
   render(gameState);
 }
 
-function checkCollision(pid) {
-  const s = gameState.snakes[pid];
-  const head = s.body[0];
-  for (let i = 1; i < s.body.length; i++) {
-    if (s.body[i].x === head.x && s.body[i].y === head.y) return true;
-  }
-  const other = pid === 'A' ? gameState.snakes['B'] : gameState.snakes['A'];
-  for (let j = 0; j < other.body.length; j++) {
-    if (other.body[j].x === head.x && other.body[j].y === head.y) return true;
-  }
+function checkCollision(pid){
+  const s=gameState.snakes[pid];
+  const head=s.body[0];
+  for(let i=1;i<s.body.length;i++) if(s.body[i].x===head.x && s.body[i].y===head.y) return true;
+  const other = pid==='A'?gameState.snakes['B']:gameState.snakes['A'];
+  for(let j=0;j<other.body.length;j++) if(other.body[j].x===head.x && other.body[j].y===head.y) return true;
   return false;
 }
 
-function placeApple() {
-  let x, y, ok;
-  do {
-    x = Math.floor(Math.random() * cols);
-    y = Math.floor(Math.random() * rows);
-    ok = true;
-    for (const pid of ['A', 'B']) {
-      if (gameState.snakes[pid].body.some(b => b.x === x && b.y === y)) { ok = false; break; }
+function placeApple(){
+  let x,y,ok;
+  do{
+    x=Math.floor(Math.random()*cols);
+    y=Math.floor(Math.random()*rows);
+    ok=true;
+    for(const pid of ['A','B']){
+      if(gameState.snakes[pid].body.some(b=>b.x===x&&b.y===y)){ ok=false; break; }
     }
-  } while (!ok);
-  gameState.apple = { x, y };
+  }while(!ok);
+  gameState.apple={x,y};
 }
 
-function render(state) {
-  if (!state) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawCell(state.apple.x, state.apple.y, colors.apple);
-  for (const pid of ['A', 'B']) {
+function render(state){
+  if(!state) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawCell(state.apple.x,state.apple.y,colors.apple);
+  for(const pid of ['A','B']){
     const sn = state.snakes[pid];
-    for (let i = 0; i < sn.body.length; i++) {
-      const c = i === 0 ? shade(colors[pid], -20) : colors[pid];
-      drawCell(sn.body[i].x, sn.body[i].y, c);
+    for(let i=0;i<sn.body.length;i++){
+      const c=i===0?shade(colors[pid],-20):colors[pid];
+      drawCell(sn.body[i].x,sn.body[i].y,c);
     }
   }
 }
 
-function drawCell(x, y, color) {
-  ctx.fillStyle = color;
-  ctx.fillRect(x * cell + 1, y * cell + 1, cell - 2, cell - 2);
+function drawCell(x,y,color){
+  ctx.fillStyle=color;
+  ctx.fillRect(x*cell+1,y*cell+1,cell-2,cell-2);
 }
 
-function shade(hex, percent) {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const amt = Math.round(2.55 * percent);
-  let R = (num >> 16) + amt;
-  let G = (num >> 8 & 0x00FF) + amt;
-  let B = (num & 0x0000FF) + amt;
-  R = (R < 255 ? R < 0 ? 0 : R : 255);
-  G = (G < 255 ? G < 0 ? 0 : G : 255);
-  B = (B < 255 ? B < 0 ? 0 : B : 255);
-  return '#' + (0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1);
+function shade(hex,percent){
+  const num=parseInt(hex.replace('#',''),16);
+  const amt=Math.round(2.55*percent);
+  let R=(num>>16)+amt, G=(num>>8&0x00FF)+amt, B=(num&0x0000FF)+amt;
+  R=R<255?R<0?0:R:255; G=G<255?G<0?0:G:255; B=B<255?B<0?0:B:255;
+  return '#'+(0x1000000+(R<<16)+(G<<8)+B).toString(16).slice(1);
 }
 
-/* ------------ Handle messages from RN/Peer ------------ */
-function handlePeerMessage(msg) {
-  if (!msg) return;
-  // msg may be { type: 'state', state: {...} } or { type: 'start' } or { type: 'assign', player: 'A' } or custom
-  if (msg.type === 'assign') {
-    playerId = msg.player;
-    log('Assigned player: ' + playerId);
-    return;
-  }
-  if (msg.type === 'state') {
-    applyStateFromHost(msg.state);
-    return;
-  }
-  if (msg.type === 'start') {
-    // server/host signaled start
-    startGameLocal(true);
-    return;
-  }
-  if (msg.type === 'dir') {
-    // If host: apply direction change to player indicated (if provided)
-    if (msg.player && gameState && gameState.snakes[msg.player]) {
-      const cur = gameState.snakes[msg.player].dir;
-      const nd = msg.dir;
-      if (!(cur.x === -nd.x && cur.y === -nd.y)) {
-        gameState.snakes[msg.player].dir = nd;
-      }
-    }
-    return;
-  }
-  if (msg.type === 'gameover') {
-    log('Game over: ' + (msg.reason || 'unknown'));
-    return;
-  }
+/* --------------------- USER INPUT --------------------- */
+function applyLocalDir(dir){
+  if(!playerId || !gameState) return;
+  const snake=gameState.snakes[playerId];
+  if(snake.dir.x===-dir.x && snake.dir.y===-dir.y) return;
+  snake.dir=dir;
+}
 
-  // fallback: unknown peer message
+function sendDir(dir){
+  if(!playerId) return;
+  sendToNative({ action:'dir', dir });
+  log('Dir sent: '+JSON.stringify(dir));
+}
+
+document.getElementById("btnUp").onclick=()=>{ const d={x:0,y:-1}; applyLocalDir(d); sendDir(d); };
+document.getElementById("btnDown").onclick=()=>{ const d={x:0,y:1}; applyLocalDir(d); sendDir(d); };
+document.getElementById("btnLeft").onclick=()=>{ const d={x:-1,y:0}; applyLocalDir(d); sendDir(d); };
+document.getElementById("btnRight").onclick=()=>{ const d={x:1,y:0}; applyLocalDir(d); sendDir(d); };
+
+/* --------------------- PEER MESSAGE HANDLER --------------------- */
+function handlePeerMessage(msg){
+  if(!msg) return;
+  if(msg.type==='assign'){ playerId=msg.player; log('Assigned player: '+playerId); return; }
+  if(msg.type==='state'){ gameState=msg.state; render(gameState); return; }
+  if(msg.type==='start'){ startGameLocal(true); return; }
+  if(msg.type==='dir' && msg.player && gameState?.snakes[msg.player]){
+    const cur=gameState.snakes[msg.player].dir;
+    const nd=msg.dir;
+    if(!(cur.x===-nd.x && cur.y===-nd.y)) gameState.snakes[msg.player].dir=nd;
+    return;
+  }
+  if(msg.type==='gameover'){ log('Game over: '+(msg.reason||'unknown')); return; }
   console.log('Unknown peer msg', msg);
 }
 
-/* ------------ WebView -> RN (user input) ------------ */
+/* --------------------- UI BUTTONS --------------------- */
+const roomIdInput=document.getElementById('roomIdInput');
+const createBtn=document.getElementById('createBtn');
+const joinBtn=document.getElementById('joinBtn');
+const startBtn=document.getElementById('startBtn');
 
-function sendDir(dir) {
-  if (!playerId) return;
+createBtn.addEventListener('click', ()=>{
+  const id=(roomIdInput.value||'').trim();
+  if(!id){ log('Enter a room id first'); return; }
+  log('Requesting native: createRoom '+id);
+  sendToNative({ action:'createRoom', roomId:id });
+});
 
-  // send to RN
-  sendToNative({ action: "dir", dir });
+joinBtn.addEventListener('click', ()=>{
+  const id=(roomIdInput.value||'').trim();
+  if(!id){ log('Enter a room id first'); return; }
+  log('Requesting native: joinRoom '+id);
+  sendToNative({ action:'joinRoom', roomId:id });
+});
 
-  // optional: log
-  log("Dir sent: " + JSON.stringify(dir));
-}
+startBtn.addEventListener('click', ()=>{
+  startGameLocal(true);
+  sendToNative({ action:'start' });
+});
 
-document.getElementById("btnUp").onclick = () => sendDir({ x: 0, y: -1 });
-document.getElementById("btnDown").onclick = () => sendDir({ x: 0, y: 1 });
-document.getElementById("btnLeft").onclick = () => sendDir({ x: -1, y: 0 });
-document.getElementById("btnRight").onclick = () => sendDir({ x: 1, y: 0 });
-
-/* ------------ initial render & handshake ------------ */
+/* --------------------- INITIALIZATION --------------------- */
 render(resetState());
-
-// let RN know page is ready — RN can reply with assignment (player) and connection status
-sendToNative({ action: 'ready' });
+sendToNative({ action:'ready' });
 log('Page ready — sent ready handshake to RN');
-
 
 </script>
 </body>
 </html>
-
-
-
-
