@@ -3,82 +3,38 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Two-player Snake (RN signaling)</title>
+  <title>Two-player Snake</title>
   <style>
-    *{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
-    body{display:flex;gap:20px;padding:20px}
-    #gameWrap{display:flex;flex-direction:column;gap:8px}
-    canvas{background:#0b2b1a;border:4px solid #063;display:block}
-    #ui{display:flex;gap:8px;align-items:center}
-    input,button{padding:8px;border-radius:6px;border:1px solid #ccc}
-    #log{width:420px;height:520px;overflow:auto;background:#111;color:#ddd;padding:8px;border-radius:6px}
+    *{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;}
+    body{display:flex;gap:20px;padding:20px;}
+    #gameWrap{display:flex;flex-direction:column;gap:8px;}
+    canvas{background:#0b2b1a;border:4px solid #063;display:block;}
+    #ui{display:flex;gap:8px;align-items:center;}
+    button{padding:8px;border-radius:6px;border:1px solid #ccc;}
+    #log{width:420px;height:520px;overflow:auto;background:#111;color:#ddd;padding:8px;border-radius:6px;}
     .hint{font-size:12px;color:#666;}
+    #controls button{width:80px;height:50px;font-size:18px;}
   </style>
 </head>
 <body>
   <div id="gameWrap">
     <canvas id="game" width="400" height="400"></canvas>
     <div class="hint">
-      Controls: Player A = Arrow keys / Buttons, Player B = WASD. 
-      Create or join a room using the buttons — signaling happens in the React Native host.
+      Controls: Player A = Arrow keys / buttons, Player B = WASD.
     </div>
-    <div id="ui">
-      <input id="roomIdInput" placeholder="room id (eg. room-123)" />
-      <button id="createBtn">Create Room (host)</button>
-      <button id="joinBtn">Join Room</button>
-      <button id="startBtn">Start Game (host)</button>
-    </div>
-    <div id="controls" style="margin-top:20px; display:flex; flex-direction:column; align-items:center; gap:10px;">
-      <button id="btnUp" style="width:80px;height:50px;font-size:18px">⬆️</button>
+    <div id="controls" style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+      <button id="btnUp">⬆️</button>
       <div style="display:flex; gap:10px;">
-        <button id="btnLeft" style="width:80px;height:50px;font-size:18px">⬅️</button>
-        <button id="btnRight" style="width:80px;height:50px;font-size:18px">➡️</button>
+        <button id="btnLeft">⬅️</button>
+        <button id="btnRight">➡️</button>
       </div>
-      <button id="btnDown" style="width:80px;height:50px;font-size:18px">⬇️</button>
+      <button id="btnDown">⬇️</button>
     </div>
+    <button id="startBtn">Start Game</button>
   </div>
-
   <div id="log">Logs will appear here</div>
 
 <script>
-/* --------------------- RN BRIDGE --------------------- */
-function sendToNative(obj) {
-  try {
-    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-      window.ReactNativeWebView.postMessage(JSON.stringify(obj));
-    } else {
-      console.log('RN bridge not available', obj);
-    }
-  } catch (e) {
-    console.warn('postMessage failed', e);
-  }
-}
-
-window.onRNMessage = function(msg) {
-  try {
-    if (msg?.fromPeer && msg.payload) { handlePeerMessage(msg.payload); return; }
-    if (msg?.type) { handlePeerMessage(msg); return; }
-    if (msg?.fromRN && typeof msg.connected !== 'undefined') {
-      log('RN connection status: ' + (msg.connected ? 'connected' : 'disconnected'));
-      return;
-    }
-    console.log('onRNMessage unknown:', msg);
-  } catch(e) {
-    console.warn('onRNMessage error', e);
-  }
-}
-
-/* --------------------- LOGGING --------------------- */
-function log(msg) {
-  const logBox = document.getElementById('log');
-  const ln = document.createElement('div');
-  ln.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-  logBox.appendChild(ln);
-  logBox.scrollTop = logBox.scrollHeight;
-  console.log(msg);
-}
-
-/* --------------------- GAME STATE --------------------- */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const cell = 20;
@@ -86,16 +42,20 @@ const cols = canvas.width / cell;
 const rows = canvas.height / cell;
 
 let gameState = null;
-let playerId = null;
-let isHost = false;
 let hostInterval = null;
-
 const colors = { A:'#4ce', B:'#e44', apple:'#ff0' };
 
-function resetState() {
+function log(msg){
+  const logBox = document.getElementById('log');
+  const ln = document.createElement('div');
+  ln.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logBox.appendChild(ln);
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+function resetState(){
   return {
     running: false,
-    tick:0,
     snakes:{
       A:{ dir:{x:1,y:0}, body:[{x:2,y:10},{x:1,y:10},{x:0,y:10}] },
       B:{ dir:{x:-1,y:0}, body:[{x:17,y:9},{x:18,y:9},{x:19,y:9}] }
@@ -104,22 +64,16 @@ function resetState() {
   };
 }
 
-function startGameLocal(asHost=false){
+function startGame(){
   gameState = resetState();
-  playerId = asHost ? 'A' : (playerId || 'B');
   gameState.running = true;
-  log('Game started. You are player '+playerId + (asHost?' (host)':''));
-  if(asHost) hostLoop();
-}
-
-function hostLoop() {
+  log('Game started!');
   if(hostInterval) clearInterval(hostInterval);
-  hostInterval = setInterval(()=>{ tickLocal() },150);
+  hostInterval = setInterval(tick,150);
 }
 
-function tickLocal() {
-  if(!gameState?.running) return;
-  gameState.tick++;
+function tick(){
+  if(!gameState.running) return;
   for(const pid of ['A','B']){
     const snake = gameState.snakes[pid];
     const head = { x:snake.body[0].x+snake.dir.x, y:snake.body[0].y+snake.dir.y };
@@ -131,9 +85,9 @@ function tickLocal() {
   }
   if(checkCollision('A')||checkCollision('B')){
     gameState.running=false;
-    log('Local collision detected');
+    log('Game Over!');
   }
-  render(gameState);
+  render();
 }
 
 function checkCollision(pid){
@@ -158,14 +112,13 @@ function placeApple(){
   gameState.apple={x,y};
 }
 
-function render(state){
-  if(!state) return;
+function render(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawCell(state.apple.x,state.apple.y,colors.apple);
+  drawCell(gameState.apple.x,gameState.apple.y,colors.apple);
   for(const pid of ['A','B']){
-    const sn = state.snakes[pid];
+    const sn = gameState.snakes[pid];
     for(let i=0;i<sn.body.length;i++){
-      const c=i===0?shade(colors[pid],-20):colors[pid];
+      const c = i===0 ? shade(colors[pid],-20) : colors[pid];
       drawCell(sn.body[i].x,sn.body[i].y,c);
     }
   }
@@ -184,71 +137,40 @@ function shade(hex,percent){
   return '#'+(0x1000000+(R<<16)+(G<<8)+B).toString(16).slice(1);
 }
 
-/* --------------------- USER INPUT --------------------- */
-function applyLocalDir(dir){
-  if(!playerId || !gameState) return;
-  const snake=gameState.snakes[playerId];
-  if(snake.dir.x===-dir.x && snake.dir.y===-dir.y) return;
-  snake.dir=dir;
-}
+/* ----------------- Controls ----------------- */
+const dirs = { ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0},
+               KeyW:{x:0,y:-1}, KeyS:{x:0,y:1}, KeyA:{x:-1,y:0}, KeyD:{x:1,y:0}};
 
-function sendDir(dir){
-  if(!playerId) return;
-  sendToNative({ action:'dir', dir });
-  log('Dir sent: '+JSON.stringify(dir));
-}
-
-document.getElementById("btnUp").onclick=()=>{ const d={x:0,y:-1}; applyLocalDir(d); sendDir(d); };
-document.getElementById("btnDown").onclick=()=>{ const d={x:0,y:1}; applyLocalDir(d); sendDir(d); };
-document.getElementById("btnLeft").onclick=()=>{ const d={x:-1,y:0}; applyLocalDir(d); sendDir(d); };
-document.getElementById("btnRight").onclick=()=>{ const d={x:1,y:0}; applyLocalDir(d); sendDir(d); };
-
-/* --------------------- PEER MESSAGE HANDLER --------------------- */
-function handlePeerMessage(msg){
-  if(!msg) return;
-  if(msg.type==='assign'){ playerId=msg.player; log('Assigned player: '+playerId); return; }
-  if(msg.type==='state'){ gameState=msg.state; render(gameState); return; }
-  if(msg.type==='start'){ startGameLocal(true); return; }
-  if(msg.type==='dir' && msg.player && gameState?.snakes[msg.player]){
-    const cur=gameState.snakes[msg.player].dir;
-    const nd=msg.dir;
-    if(!(cur.x===-nd.x && cur.y===-nd.y)) gameState.snakes[msg.player].dir=nd;
-    return;
+document.addEventListener('keydown', e=>{
+  if(!gameState.running) return;
+  if(e.code in dirs){
+    const dir = dirs[e.code];
+    if(e.code.startsWith('Arrow')){
+      const snake=gameState.snakes['A'];
+      if(!(snake.dir.x===-dir.x && snake.dir.y===-dir.y)) snake.dir=dir;
+    } else {
+      const snake=gameState.snakes['B'];
+      if(!(snake.dir.x===-dir.x && snake.dir.y===-dir.y)) snake.dir=dir;
+    }
   }
-  if(msg.type==='gameover'){ log('Game over: '+(msg.reason||'unknown')); return; }
-  console.log('Unknown peer msg', msg);
+});
+
+document.getElementById("btnUp").onclick=()=>changeDir('A',{x:0,y:-1});
+document.getElementById("btnDown").onclick=()=>changeDir('A',{x:0,y:1});
+document.getElementById("btnLeft").onclick=()=>changeDir('A',{x:-1,y:0});
+document.getElementById("btnRight").onclick=()=>changeDir('A',{x:1,y:0});
+
+function changeDir(player,dir){
+  const snake=gameState.snakes[player];
+  if(!(snake.dir.x===-dir.x && snake.dir.y===-dir.y)) snake.dir=dir;
 }
 
-/* --------------------- UI BUTTONS --------------------- */
-const roomIdInput=document.getElementById('roomIdInput');
-const createBtn=document.getElementById('createBtn');
-const joinBtn=document.getElementById('joinBtn');
-const startBtn=document.getElementById('startBtn');
+document.getElementById("startBtn").onclick=startGame;
 
-createBtn.addEventListener('click', ()=>{
-  const id=(roomIdInput.value||'').trim();
-  if(!id){ log('Enter a room id first'); return; }
-  log('Requesting native: createRoom '+id);
-  sendToNative({ action:'createRoom', roomId:id });
-});
-
-joinBtn.addEventListener('click', ()=>{
-  const id=(roomIdInput.value||'').trim();
-  if(!id){ log('Enter a room id first'); return; }
-  log('Requesting native: joinRoom '+id);
-  sendToNative({ action:'joinRoom', roomId:id });
-});
-
-startBtn.addEventListener('click', ()=>{
-  startGameLocal(true);
-  sendToNative({ action:'start' });
-});
-
-/* --------------------- INITIALIZATION --------------------- */
-render(resetState());
-sendToNative({ action:'ready' });
-log('Page ready — sent ready handshake to RN');
-
+/* Initial render */
+gameState = resetState();
+render();
+log('Press "Start Game" to begin!');
 </script>
 </body>
 </html>
