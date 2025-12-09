@@ -326,9 +326,11 @@ render(resetState());
 // let RN know page is ready — RN can reply with assignment (player) and connection status
 sendToNative({ action: 'ready' });
 log('Page ready — sent ready handshake to RN');
+hostLoop(); 
 
 </script>
 </body>
 </html>
+
 
 
