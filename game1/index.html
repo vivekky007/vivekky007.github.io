@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Two-player Snake (WebRTC + Firestore signaling)</title>
+  <title>Two-player Snake (RN signaling)</title>
   <style>
     *{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
     body{display:flex;gap:20px;padding:20px}
@@ -12,13 +12,13 @@
     #ui{display:flex;gap:8px;align-items:center}
     input,button{padding:8px;border-radius:6px;border:1px solid #ccc}
     #log{width:420px;height:520px;overflow:auto;background:#111;color:#ddd;padding:8px;border-radius:6px}
-    .hint{font-size:12px;color:#666}
+    .hint{font-size:12px;color:#666'}
   </style>
 </head>
 <body>
   <div id="gameWrap">
     <canvas id="game" width="400" height="400"></canvas>
-    <div class="hint">Controls: Player A = Arrow keys, Player B = WASD. Each client controls one snake. Create a room on one client and join the same ID on the other.</div>
+    <div class="hint">Controls: Player A = Arrow keys, Player B = WASD. Create or join a room using the buttons — signaling happens in the React Native host.</div>
     <div id="ui">
       <input id="roomIdInput" placeholder="room id (eg. room-123)" />
       <button id="createBtn">Create Room (host)</button>
@@ -26,394 +26,305 @@
       <button id="startBtn">Start Game (host)</button>
     </div>
   </div>
+
   <div id="log">Logs will appear here</div>
 
 <script>
 /*
-  Two-player snake using WebRTC DataChannel with Firestore signaling.
-  - Replace firebaseConfig with your project's config
-  - This code demonstrates using Firestore to exchange offer/answer/ICE
-  - Game logic is simple: each client controls one snake. Direction changes are sent to peer.
+  Modified to use React Native for signaling.
+  Protocol:
+    WebView -> RN via postMessage:
+      { action: 'createRoom', roomId }
+      { action: 'joinRoom',   roomId }
+      { action: 'start' }
+      { action: 'dir', dir: {x,y} }
+      { action: 'ready' }   // called when page loads to request assignment
+    RN -> WebView via injected onRNMessage(msg):
+      { fromRN: true, connected: boolean }
+      { fromPeer: true, payload: {...} }  // forwarded peer messages
+      or direct:
+      { type: 'assign', player: 'A' }
+      { type: 'state', state: {...} }
+      { type: 'start' }
 */
 
-// ----- FIREBASE CONFIG - REPLACE WITH YOURS -----
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  // storageBucket, messagingSenderId, appId optional for Firestore usage
+function sendToNative(obj) {
+  try {
+    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+      window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+    } else {
+      console.log('RN bridge not available', obj);
+    }
+  } catch (e) {
+    console.warn('postMessage failed', e);
+  }
+}
+
+function log(msg) {
+  const logBox = document.getElementById('log');
+  const ln = document.createElement('div');
+  ln.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  logBox.appendChild(ln);
+  logBox.scrollTop = logBox.scrollHeight;
+  // also console
+  console.log(msg);
+}
+
+/* ------------ UI wiring ------------ */
+const roomIdInput = document.getElementById('roomIdInput');
+const createBtn = document.getElementById('createBtn');
+const joinBtn = document.getElementById('joinBtn');
+const startBtn = document.getElementById('startBtn');
+
+createBtn.addEventListener('click', () => {
+  const id = (roomIdInput.value || '').trim();
+  if (!id) return log('Enter a room id first');
+  log('Requesting native: createRoom ' + id);
+  sendToNative({ action: 'createRoom', roomId: id });
+});
+
+joinBtn.addEventListener('click', () => {
+  const id = (roomIdInput.value || '').trim();
+  if (!id) return log('Enter a room id first');
+  log('Requesting native: joinRoom ' + id);
+  sendToNative({ action: 'joinRoom', roomId: id });
+});
+
+startBtn.addEventListener('click', () => {
+  log('Requesting native: start');
+  sendToNative({ action: 'start' });
+});
+
+/* ------------ Bridge: receive messages from RN ------------ */
+/*
+  RN will inject JS that calls window.onRNMessage(payload)
+  e.g. window.onRNMessage({ fromRN: true, connected: true })
+  or window.onRNMessage({ fromPeer: true, payload: { type:'state', state: {...} }})
+*/
+window.onRNMessage = function(msg) {
+  try {
+    // If RN wraps peer messages
+    if (msg && msg.fromPeer && msg.payload) {
+      handlePeerMessage(msg.payload);
+      return;
+    }
+
+    // Direct RN messages
+    if (msg && msg.type) {
+      handlePeerMessage(msg);
+      return;
+    }
+
+    // RN-level control messages (connectivity)
+    if (msg && msg.fromRN && typeof msg.connected !== 'undefined') {
+      log('RN connection status: ' + (msg.connected ? 'connected' : 'disconnected'));
+      // RN may send assignment separately
+      return;
+    }
+
+    // fallback: unknown
+    console.log('onRNMessage unknown:', msg);
+  } catch (e) {
+    console.warn('onRNMessage error', e);
+  }
 };
-// ------------------------------------------------
 
-// Import firebase via CDN (modular SDK)
-(function loadFirebase(){
-  const s = document.createElement('script');
-  s.src = 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js';
-  s.onload = () => {
-    const s2 = document.createElement('script');
-    s2.src = 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js';
-    s2.onload = initApp;
-    document.head.appendChild(s2);
+/* ------------ Game logic (same as before, slightly adapted) ------------ */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const cell = 20;
+const cols = canvas.width / cell;
+const rows = canvas.height / cell;
+
+let gameState = null; // authoritative state when provided
+let playerId = null;  // assigned by RN (A or B)
+let isHost = false;   // this page won't decide host; RN determines it.
+
+/* colors */
+const colors = { A: '#4ce', B: '#e44', apple: '#ff0' };
+
+function resetState() {
+  return {
+    running: false,
+    tick: 0,
+    snakes: {
+      A: { dir: { x: 1, y: 0 }, body: [{ x: 2, y: 10 }, { x: 1, y: 10 }, { x: 0, y: 10 }] },
+      B: { dir: { x: -1, y: 0 }, body: [{ x: 17, y: 9 }, { x: 18, y: 9 }, { x: 19, y: 9 }] }
+    },
+    apple: { x: Math.floor(cols / 2), y: Math.floor(rows / 2) }
   };
-  document.head.appendChild(s);
-})();
+}
 
-async function initApp(){
-  if(!firebaseConfig.apiKey){
-    log('Please replace firebaseConfig with your actual Firebase project config in the HTML file.');
+function applyStateFromHost(state) {
+  gameState = state;
+  render(gameState);
+}
+
+function startGameLocal(asHost = false) {
+  gameState = resetState();
+  playerId = asHost ? 'A' : (playerId || 'B'); // if RN assigned playerId, keep it
+  gameState.running = true;
+  log('Game started locally. You are player ' + playerId + (asHost ? ' (host)' : ''));
+  if (asHost) hostLoop(); // note: with RN signaling the host will usually be RN side; still allow visual host loop if needed
+}
+
+let hostInterval = null;
+function hostLoop() {
+  if (hostInterval) clearInterval(hostInterval);
+  hostInterval = setInterval(() => {
+    tickLocal();
+    // If this page is host and authoritative, it should ask RN to broadcast state:
+    // sendToNative({ action: 'state', state: gameState });
+    // But in our architecture, RN/Native is authoritative, so we generally expect host to be handled there.
+  }, 150);
+}
+
+function tickLocal() {
+  if (!gameState || !gameState.running) return;
+  gameState.tick++;
+  for (const pid of ['A', 'B']) {
+    const snake = gameState.snakes[pid];
+    const head = { x: snake.body[0].x + snake.dir.x, y: snake.body[0].y + snake.dir.y };
+    head.x = (head.x + cols) % cols;
+    head.y = (head.y + rows) % rows;
+    snake.body.unshift(head);
+    if (head.x === gameState.apple.x && head.y === gameState.apple.y) {
+      placeApple();
+    } else {
+      snake.body.pop();
+    }
+  }
+  if (checkCollision('A') || checkCollision('B')) {
+    gameState.running = false;
+    log('Local collision detected');
+  }
+  render(gameState);
+}
+
+function checkCollision(pid) {
+  const s = gameState.snakes[pid];
+  const head = s.body[0];
+  for (let i = 1; i < s.body.length; i++) {
+    if (s.body[i].x === head.x && s.body[i].y === head.y) return true;
+  }
+  const other = pid === 'A' ? gameState.snakes['B'] : gameState.snakes['A'];
+  for (let j = 0; j < other.body.length; j++) {
+    if (other.body[j].x === head.x && other.body[j].y === head.y) return true;
+  }
+  return false;
+}
+
+function placeApple() {
+  let x, y, ok;
+  do {
+    x = Math.floor(Math.random() * cols);
+    y = Math.floor(Math.random() * rows);
+    ok = true;
+    for (const pid of ['A', 'B']) {
+      if (gameState.snakes[pid].body.some(b => b.x === x && b.y === y)) { ok = false; break; }
+    }
+  } while (!ok);
+  gameState.apple = { x, y };
+}
+
+function render(state) {
+  if (!state) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawCell(state.apple.x, state.apple.y, colors.apple);
+  for (const pid of ['A', 'B']) {
+    const sn = state.snakes[pid];
+    for (let i = 0; i < sn.body.length; i++) {
+      const c = i === 0 ? shade(colors[pid], -20) : colors[pid];
+      drawCell(sn.body[i].x, sn.body[i].y, c);
+    }
+  }
+}
+
+function drawCell(x, y, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x * cell + 1, y * cell + 1, cell - 2, cell - 2);
+}
+
+function shade(hex, percent) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  let R = (num >> 16) + amt;
+  let G = (num >> 8 & 0x00FF) + amt;
+  let B = (num & 0x0000FF) + amt;
+  R = (R < 255 ? R < 0 ? 0 : R : 255);
+  G = (G < 255 ? G < 0 ? 0 : G : 255);
+  B = (B < 255 ? B < 0 ? 0 : B : 255);
+  return '#' + (0x1000000 + (R << 16) + (G << 8) + B).toString(16).slice(1);
+}
+
+/* ------------ Handle messages from RN/Peer ------------ */
+function handlePeerMessage(msg) {
+  if (!msg) return;
+  // msg may be { type: 'state', state: {...} } or { type: 'start' } or { type: 'assign', player: 'A' } or custom
+  if (msg.type === 'assign') {
+    playerId = msg.player;
+    log('Assigned player: ' + playerId);
     return;
   }
-  firebase.initializeApp(firebaseConfig);
-  const firestore = firebase.firestore();
-
-  // UI refs
-  const roomIdInput = document.getElementById('roomIdInput');
-  const createBtn = document.getElementById('createBtn');
-  const joinBtn = document.getElementById('joinBtn');
-  const startBtn = document.getElementById('startBtn');
-  const logBox = document.getElementById('log');
-
-  // WebRTC helpers
-  const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-  let pc = null;
-  let dc = null;
-  let roomRef = null;
-  let isHost = false;
-  let connected = false;
-
-  createBtn.onclick = async () => {
-    const id = roomIdInput.value.trim();
-    if(!id) return log('Enter a room id first');
-    isHost = true;
-    roomRef = firestore.collection('games').doc(id);
-    pc = new RTCPeerConnection(servers);
-
-    dc = pc.createDataChannel('game', { ordered: false, maxRetransmits: 0 });
-    setupDataChannel(dc);
-
-    pc.onicecandidate = (e) => {
-      if(!e.candidate) return;
-      const candidate = JSON.parse(JSON.stringify(e.candidate));
-      roomRef.collection('offerCandidates').add({ candidate }).catch(console.warn);
-    };
-
-    pc.onconnectionstatechange = () => {
-      log('PC state: ' + pc.connectionState);
-      connected = pc.connectionState === 'connected';
-    };
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    const roomWithOffer = { offer: { type: offer.type, sdp: offer.sdp }, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
-    await roomRef.set(roomWithOffer);
-    log('Room created: ' + id);
-
-    // listen for answer
-    roomRef.onSnapshot(async snap => {
-      const data = snap.data();
-      if(!data) return;
-      if(data.answer && !pc.currentRemoteDescription){
-        const answerDesc = new RTCSessionDescription(data.answer);
-        await pc.setRemoteDescription(answerDesc).catch(e=>log('setRemoteDescription failed: '+e));
-        log('Answer received and set');
-      }
-    });
-
-    // listen for answer candidates
-    roomRef.collection('answerCandidates').onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(async change => {
-        if(change.type === 'added'){
-          const cand = change.doc.data().candidate;
-          try{ await pc.addIceCandidate(new RTCIceCandidate(cand)); }
-          catch(e){ console.warn('addIce (answer) failed', e); }
-        }
-      });
-    });
-  };
-
-  joinBtn.onclick = async () => {
-    const id = roomIdInput.value.trim();
-    if(!id) return log('Enter a room id first');
-    isHost = false;
-    roomRef = firestore.collection('games').doc(id);
-
-    const roomSnapshot = await roomRef.get();
-    if(!roomSnapshot.exists){ log('Room not found'); return; }
-
-    pc = new RTCPeerConnection(servers);
-
-    pc.ondatachannel = (e) => { dc = e.channel; setupDataChannel(dc); };
-
-    pc.onicecandidate = (e) => {
-      if(!e.candidate) return;
-      const candidate = JSON.parse(JSON.stringify(e.candidate));
-      roomRef.collection('answerCandidates').add({ candidate }).catch(console.warn);
-    };
-
-    pc.onconnectionstatechange = () => {
-      log('PC state: ' + pc.connectionState);
-      connected = pc.connectionState === 'connected';
-    };
-
-    const roomData = roomSnapshot.data();
-    if(!roomData?.offer){ log('Offer missing'); return; }
-    await pc.setRemoteDescription(new RTCSessionDescription(roomData.offer));
-
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-
-    await roomRef.update({ answer: { type: answer.type, sdp: answer.sdp } });
-    log('Joined room and wrote answer');
-
-    // listen for offer candidates
-    roomRef.collection('offerCandidates').onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(async change => {
-        if(change.type === 'added'){
-          const cand = change.doc.data().candidate;
-          try{ await pc.addIceCandidate(new RTCIceCandidate(cand)); }
-          catch(e){ console.warn('addIce (offer) failed', e); }
-        }
-      });
-    });
-  };
-
-  startBtn.onclick = () => {
-    if(!isHost) return log('Only host can start the game');
-    // notify peer to start
-    send({ type: 'start' });
-    startGame(true); // host starts own game
-  };
-
-  function setupDataChannel(channel){
-    channel.onopen = () => { log('DataChannel open'); connected = true; };
-    channel.onclose = () => { log('DataChannel closed'); connected = false; };
-    channel.onerror = (e) => { console.warn('DC error', e); };
-    channel.onmessage = (e) => {
-      try{
-        const data = JSON.parse(e.data);
-        handleRemoteMessage(data);
-      }catch(err){ console.warn('invalid dc msg', err); }
-    };
+  if (msg.type === 'state') {
+    applyStateFromHost(msg.state);
+    return;
   }
-
-  function send(obj){
-    if(!dc || dc.readyState !== 'open') return false;
-    try{ dc.send(JSON.stringify(obj)); return true; }catch(e){ console.warn('send fail', e); return false; }
+  if (msg.type === 'start') {
+    // server/host signaled start
+    startGameLocal(false);
+    return;
   }
-
-  function log(msg){
-    const ln = document.createElement('div');
-    ln.textContent = '['+ new Date().toLocaleTimeString() +'] ' + msg;
-    logBox.appendChild(ln);
-    logBox.scrollTop = logBox.scrollHeight;
-  }
-
-  // ------------ Game logic ------------
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
-  const cell = 20;
-  const cols = canvas.width / cell; // 20
-  const rows = canvas.height / cell; // 20
-
-  let gameState = null; // will hold positions for both snakes, apple, running
-
-  // Each client is assigned a player id when they start: either 'A' or 'B'.
-  // Host will be Player A by convention, joiner is B.
-  let playerId = null;
-
-  // default colors
-  const colors = { A: '#4ce', B: '#e44', apple: '#ff0' };
-
-  // create empty initial state function
-  function resetState(){
-    return {
-      running: false,
-      tick: 0,
-      snakes: {
-        A: { dir: {x:1,y:0}, body: [ {x:2,y:10}, {x:1,y:10}, {x:0,y:10} ] },
-        B: { dir: {x:-1,y:0}, body: [ {x:17,y:9}, {x:18,y:9}, {x:19,y:9} ] }
-      },
-      apple: { x: Math.floor(cols/2), y: Math.floor(rows/2) }
-    };
-  }
-
-  function startGame(amHost=false){
-    gameState = resetState();
-    playerId = amHost ? 'A' : 'B';
-    gameState.running = true;
-    log('Game started. You are player '+playerId);
-    // host is authoritative: host advances game and sends full state each tick
-    if(amHost){ hostLoop(); }
-    else { clientLoop(); }
-  }
-
-  // Host loop sends authoritative state every tick
-  let hostInterval = null;
-  function hostLoop(){
-    if(hostInterval) clearInterval(hostInterval);
-    hostInterval = setInterval(()=>{
-      tick();
-      // send full state to peer
-      send({ type: 'state', state: gameState });
-    }, 150);
-  }
-
-  // Client applies remote state updates; it still listens to user input and sends direction changes to host
-  function clientLoop(){
-    // no local game tick beyond rendering; rely on remote state
-  }
-
-  function tick(){
-    if(!gameState || !gameState.running) return;
-    gameState.tick++;
-    // move snakes based on their current dir
-    for(const pid of ['A','B']){
-      const snake = gameState.snakes[pid];
-      const head = { x: snake.body[0].x + snake.dir.x, y: snake.body[0].y + snake.dir.y };
-      // wrap around
-      head.x = (head.x + cols) % cols;
-      head.y = (head.y + rows) % rows;
-      snake.body.unshift(head);
-      // check apple
-      if(head.x === gameState.apple.x && head.y === gameState.apple.y){
-        // grow: don't pop tail
-        // place new apple
-        placeApple();
-      } else {
-        snake.body.pop();
+  if (msg.type === 'dir') {
+    // If host: apply direction change to player indicated (if provided)
+    if (msg.player && gameState && gameState.snakes[msg.player]) {
+      const cur = gameState.snakes[msg.player].dir;
+      const nd = msg.dir;
+      if (!(cur.x === -nd.x && cur.y === -nd.y)) {
+        gameState.snakes[msg.player].dir = nd;
       }
     }
-    // collisions simple: if A hits B or self -> reset
-    if(checkCollision('A') || checkCollision('B')){
-      gameState.running = false;
-      send({ type: 'gameover', reason: 'collision' });
-      log('Game over (collision). Host will reset in 2s');
-      setTimeout(()=>{ if(isHost) startGame(true); }, 2000);
-    }
-    render(gameState);
+    return;
+  }
+  if (msg.type === 'gameover') {
+    log('Game over: ' + (msg.reason || 'unknown'));
+    return;
   }
 
-  function checkCollision(pid){
-    const s = gameState.snakes[pid];
-    const head = s.body[0];
-    // self collision
-    for(let i=1;i<s.body.length;i++){
-      if(s.body[i].x === head.x && s.body[i].y === head.y) return true;
-    }
-    // collision with other snake
-    const other = pid === 'A' ? gameState.snakes['B'] : gameState.snakes['A'];
-    for(let j=0;j<other.body.length;j++){
-      if(other.body[j].x === head.x && other.body[j].y === head.y) return true;
-    }
-    return false;
-  }
-
-  function placeApple(){
-    // naive placement (avoid both snake bodies)
-    let x,y,ok;
-    do{
-      x = Math.floor(Math.random()*cols);
-      y = Math.floor(Math.random()*rows);
-      ok = true;
-      for(const pid of ['A','B']){
-        if(gameState.snakes[pid].body.some(b=>b.x===x && b.y===y)){ ok=false; break; }
-      }
-    }while(!ok);
-    gameState.apple = { x,y };
-  }
-
-  function handleRemoteMessage(msg){
-    if(msg.type === 'start'){
-      // host asked to start
-      startGame(false);
-    } else if(msg.type === 'dir'){
-      // host may ignore; joiner sending dir to host
-      // if this client is host, apply direction change for that player
-      if(isHost){
-        const from = msg.player; // 'B' if sender is joiner
-        if(gameState && gameState.snakes[from]){
-          // validate not reversing
-          const cur = gameState.snakes[from].dir;
-          const nd = msg.dir;
-          if(!(cur.x === -nd.x && cur.y === -nd.y)) gameState.snakes[from].dir = nd;
-        }
-      }
-    } else if(msg.type === 'state'){
-      // client receives authoritative state
-      if(!isHost){ gameState = msg.state; render(gameState); }
-    } else if(msg.type === 'gameover'){
-      log('Remote: gameover - '+msg.reason);
-    }
-  }
-
-  // keyboard handling
-  window.addEventListener('keydown', (e)=>{
-    if(!playerId) return; // not in game
-    const forHostApplying = isHost; // host applies both own and remote
-    const targetPlayer = playerId; // which snake this client controls
-    let newDir = null;
-    if(playerId === 'A'){
-      // Player A uses arrow keys
-      if(e.key === 'ArrowUp') newDir = {x:0,y:-1};
-      if(e.key === 'ArrowDown') newDir = {x:0,y:1};
-      if(e.key === 'ArrowLeft') newDir = {x:-1,y:0};
-      if(e.key === 'ArrowRight') newDir = {x:1,y:0};
-    } else {
-      // Player B uses WASD
-      if(e.key === 'w') newDir = {x:0,y:-1};
-      if(e.key === 's') newDir = {x:0,y:1};
-      if(e.key === 'a') newDir = {x:-1,y:0};
-      if(e.key === 'd') newDir = {x:1,y:0};
-    }
-    if(newDir){
-      e.preventDefault();
-      // If host, change state directly
-      if(isHost){
-        const snake = gameState.snakes[targetPlayer];
-        if(!(snake.dir.x === -newDir.x && snake.dir.y === -newDir.y)) snake.dir = newDir;
-      }
-      // send direction change over datachannel so host knows (if not host)
-      send({ type: 'dir', player: targetPlayer, dir: newDir });
-    }
-  });
-
-  // rendering
-  function render(state){
-    if(!state) return;
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    // draw apple
-    drawCell(state.apple.x, state.apple.y, colors.apple);
-    // draw both snakes
-    for(const pid of ['A','B']){
-      const sn = state.snakes[pid];
-      for(let i=0;i<sn.body.length;i++){
-        const c = i===0 ? shade(colors[pid], -20) : colors[pid];
-        drawCell(sn.body[i].x, sn.body[i].y, c);
-      }
-    }
-  }
-
-  function drawCell(x,y,color){
-    ctx.fillStyle = color;
-    ctx.fillRect(x*cell+1, y*cell+1, cell-2, cell-2);
-  }
-
-  // small helper to darken/brighten hex color
-  function shade(hex, percent) {
-    const num = parseInt(hex.replace('#',''),16);
-    const amt = Math.round(2.55 * percent);
-    let R = (num >> 16) + amt;
-    let G = (num >> 8 & 0x00FF) + amt;
-    let B = (num & 0x0000FF) + amt;
-    R = (R<255?R<0?0:R:255); G = (G<255?G<0?0:G:255); B = (B<255?B<0?0:B:255);
-    return '#' + (0x1000000 + (R<<16) + (G<<8) + B).toString(16).slice(1);
-  }
-
-  // initial render
-  render(resetState());
-
+  // fallback: unknown peer message
+  console.log('Unknown peer msg', msg);
 }
+
+/* ------------ WebView -> RN (user input) ------------ */
+window.addEventListener('keydown', (e) => {
+  if (!playerId) return; // not assigned yet
+  let newDir = null;
+  if (playerId === 'A') {
+    if (e.key === 'ArrowUp') newDir = { x: 0, y: -1 };
+    if (e.key === 'ArrowDown') newDir = { x: 0, y: 1 };
+    if (e.key === 'ArrowLeft') newDir = { x: -1, y: 0 };
+    if (e.key === 'ArrowRight') newDir = { x: 1, y: 0 };
+  } else {
+    if (e.key === 'w') newDir = { x: 0, y: -1 };
+    if (e.key === 's') newDir = { x: 0, y: 1 };
+    if (e.key === 'a') newDir = { x: -1, y: 0 };
+    if (e.key === 'd') newDir = { x: 1, y: 0 };
+  }
+  if (newDir) {
+    e.preventDefault();
+    // Tell RN about the direction. RN will forward to peer/host.
+    // Include player if you want (optional). RN/host can also assign origin.
+    sendToNative({ action: 'dir', dir: newDir });
+  }
+});
+
+/* ------------ initial render & handshake ------------ */
+render(resetState());
+
+// let RN know page is ready — RN can reply with assignment (player) and connection status
+sendToNative({ action: 'ready' });
+log('Page ready — sent ready handshake to RN');
+
 </script>
 </body>
 </html>
