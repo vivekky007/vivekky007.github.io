@@ -336,7 +336,18 @@
   /* ------- RN message handler ------- */
   window.onRNMessage = function (msg) {
     try {
-      if (!msg) return;
+      if (!msg) {
+        log("onRNMessage: empty msg");
+        return;
+      }
+
+      // Defensive: If RN accidentally passes a JSON string, parse it
+      if (typeof msg === "string") {
+        try { msg = JSON.parse(msg); } catch(e) { /* keep as string */ }
+      }
+
+      logMsg("RN →", msg);
+
       if (msg.type === "assign") {
         role = msg.player;
         isHost = role === "A";
@@ -353,20 +364,49 @@
         }
 
       } else if (msg.type === "start") {
-        if (isHost) startAsHost();
-        else startAsClient();
+        log("RN requested start");
+        // Always ensure correct client start even if isHost flag confused
+        if (isHost) {
+          startAsHost();
+        } else {
+          startAsClient();
+        }
       } else if (msg.type === "setGrid") {
-        if (typeof msg.grid === "number") GRID = msg.grid;
+        if (typeof msg.grid === "number") {
+          GRID = msg.grid;
+          restart();
+        }
+      } else {
+        logMsg("RN → unknown type", msg);
       }
     } catch (e) {
       console.warn("onRNMessage error", e);
+      log("onRNMessage error: " + String(e));
     }
   };
 
   /* ------- Peer message handler ------- */
   window.onPeerMessage = function (msg) {
     try {
-      if (!msg || !msg.type) return;
+      if (!msg) {
+        log("onPeerMessage: empty msg");
+        return;
+      }
+
+      // Defensive parse if a string comes through
+      if (typeof msg === "string") {
+        try { msg = JSON.parse(msg); } catch (e) { /* leave as string */ }
+      }
+
+      logMsg("Peer →", msg);
+
+      // If peer sends a start, always start client
+      if (msg.type === "start") {
+        log("Peer requested start");
+        // If this device is host but somehow also got start (rare), ignore client start
+        if (!isHost) startAsClient();
+        return;
+      }
 
       if (msg.type === "dir") {
         const remotePlayer = msg.player === "A" ? 0 : 1;
@@ -374,14 +414,17 @@
         if (isHost) trySetDir(remotePlayer, DIRS[dirKey]);
       } else if (msg.type === "state") {
         if (!isHost) applyStateFromHost(msg.state);
-      } else if (msg.type === "start") {
-        if (!isHost) startAsClient();
+      } else if (msg.type === "message") {
+        // optional: display in log
+        logMsg("Peer message text:", msg.text);
+      } else {
+        logMsg("Unhandled peer message:", msg);
       }
     } catch (e) {
       console.warn("onPeerMessage error", e);
+      log("onPeerMessage error: " + String(e));
     }
   };
-
   /* ------- Room management ------- */
   function joinRoom(roomId) {
     if (!roomId) {
@@ -429,4 +472,5 @@
   init();
   window.__snake_restart = restart;
 })();
+
 
