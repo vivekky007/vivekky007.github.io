@@ -371,6 +371,10 @@
     p2ScoreEl.textContent = `P2: ${players[1]?.score ?? 0}`;
   }
 
+  function createRoom(s){
+    
+  }
+
   /* ------- Message entry points from RN and peer ------- */
 
   // RN injects important control messages here:
@@ -443,6 +447,37 @@
     // We'll keep it paused here and rely on RN to assign roles.
     log("Snake network module initialized, awaiting role assignment and start");
   }
+
+  
+  function joinRoom(roomId) {
+    if (!roomId || roomId.trim() === "") {
+      log("❌ Join Room: Room ID cannot be empty");
+      return;
+    }
+    log("Joining room: " + roomId);
+    postToNative({ action: "joinRoom", roomId });
+  }
+
+  function createRoom(roomId) {
+    if (!roomId || roomId.trim() === "") {
+      log("❌ Create Room: Room ID cannot be empty");
+      return;
+    }
+    log("Creating room: " + roomId);
+    postToNative({ action: "createRoom", roomId });
+  }
+
+  /* ---------------- EVENT LISTENERS FOR BUTTONS ---------------- */
+
+  document.getElementById("joinRoomBtn").addEventListener("click", () => {
+    const id = document.getElementById("joinRoomInput").value;
+    joinRoom(id);
+  });
+
+  document.getElementById("createRoomBtn").addEventListener("click", () => {
+    const id = document.getElementById("createRoomInput").value;
+    createRoom(id);
+  });
 
   init();
 
