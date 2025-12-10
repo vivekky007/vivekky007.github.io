@@ -1,12 +1,4 @@
 // snake.net.js
-// Host-authoritative multiplayer over RN <-> WebRTC (host = Player A).
-// WebView <-> RN messages:
-//   -> RN receives: { action: 'ready' } (on load), { action: 'dir', player: 'A'|'B', dir: 'up'|'left'... }
-//   -> RN should forward dir/state over datachannel to peer and inject peer messages into window.onPeerMessage
-// RN -> WebView injection points:
-//   window.onRNMessage(msg)   // messages coming from RN (assign/start etc.)
-//   window.onPeerMessage(msg) // messages coming from the remote peer (via RN's setOnMessage)
-
 (() => {
   /* ------- Helpers ------- */
   function postToNative(obj) {
@@ -18,6 +10,7 @@
       console.warn("postMessage failed", e);
     }
   }
+
   function log(msg) {
     const el = document.getElementById("log");
     if (!el) return;
@@ -31,7 +24,7 @@
   postToNative({ action: "ready" });
   log("READY sent to RN");
 
-  /* ------- Canvas & config (unchanged) ------- */
+  /* ------- Canvas & config ------- */
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
 
@@ -75,15 +68,14 @@
     };
   }
 
-  // network role: 'A' | 'B' | null
   let role = null;
-  let isHost = false; // role === 'A'
+  let isHost = false;
   let players = [];
   let food = null;
   let running = false;
   let gameInterval = null;
   let lastTick = 0;
-  let localPlayerIndex = null; // 0 if A, 1 if B
+  let localPlayerIndex = null;
 
   function placeFood() {
     const spots = new Set();
@@ -122,7 +114,6 @@
     log("Host started game");
     postToNative({ action: "startedAsHost" });
 
-    // send an initial full state so client can render before first tick
     sendStateToPeer();
   }
 
@@ -142,41 +133,28 @@
   }
 
   startBtn.addEventListener("click", () => {
-    // If host, starting is authoritative; client relies on host's start.
     if (isHost) {
-      // inform RN to broadcast a start to the peer (so both sides sync)
-      postToNative({ action: "start" }); // RN should forward as {type:'start'} to remote peer
-      // also start locally
+      postToNative({ action: "start" });
       startAsHost();
     } else {
-      // request host to start (send a start request)
       postToNative({ action: "requestStart" });
       log("Requested host to start");
     }
   });
 
-  /* ------- Inputs & sending dirs to RN (which forwards to peer) ------- */
+  /* ------- Inputs ------- */
   function sendLocalDir(dirKey) {
     if (!role) return;
-    // send to RN to forward to remote peer
     postToNative({ action: "dir", player: role, dir: dirKey });
-
-    // apply immediately if host (low latency)
-    if (isHost) {
-      trySetDir(localPlayerIndex, DIRS[dirKey]);
-    }
+    if (isHost) trySetDir(localPlayerIndex, DIRS[dirKey]);
   }
 
   window.addEventListener("keydown", (ev) => {
     const k = ev.key.toLowerCase();
-    if (k === "w") sendLocalDir("up");
-    if (k === "s") sendLocalDir("down");
-    if (k === "a") sendLocalDir("left");
-    if (k === "d") sendLocalDir("right");
-    if (ev.key === "ArrowUp") sendLocalDir("up");
-    if (ev.key === "ArrowDown") sendLocalDir("down");
-    if (ev.key === "ArrowLeft") sendLocalDir("left");
-    if (ev.key === "ArrowRight") sendLocalDir("right");
+    if (k === "w" || ev.key === "ArrowUp") sendLocalDir("up");
+    if (k === "s" || ev.key === "ArrowDown") sendLocalDir("down");
+    if (k === "a" || ev.key === "ArrowLeft") sendLocalDir("left");
+    if (k === "d" || ev.key === "ArrowRight") sendLocalDir("right");
   });
 
   document.querySelectorAll("#touchControls .pad").forEach(pad => {
@@ -184,12 +162,10 @@
     pad.querySelectorAll(".btn").forEach(btn => {
       btn.addEventListener("touchstart", (e) => {
         e.preventDefault();
-        const dir = btn.dataset.dir;
-        sendLocalDir(dir);
+        sendLocalDir(btn.dataset.dir);
       });
       btn.addEventListener("click", (e) => {
-        const dir = btn.dataset.dir;
-        sendLocalDir(dir);
+        sendLocalDir(btn.dataset.dir);
       });
     });
   });
@@ -201,12 +177,11 @@
     p.nextDir = dir;
   }
 
-  /* ------- Host tick: authoritative update & broadcast ------- */
+  /* ------- Host tick ------- */
   function hostTick() {
     if (!running) return;
     lastTick++;
 
-    // move players
     players.forEach(p => {
       if (!p.alive) return;
       p.dir = p.nextDir;
@@ -218,7 +193,6 @@
       p.body.unshift(head);
     });
 
-    // food / score
     players.forEach((p, idx) => {
       if (!p.alive) return;
       if (p.body[0].x === food.x && p.body[0].y === food.y) {
@@ -231,7 +205,6 @@
       }
     });
 
-    // collisions
     const occupied = new Map();
     players.forEach((p, idx) => {
       p.body.forEach((seg, segi) => {
@@ -277,16 +250,12 @@
       }
     }
 
-    // broadcast authoritative state to peer
     sendStateToPeer();
-
-    // draw locally (host)
     draw();
     updateScoreUI();
   }
 
   function sendStateToPeer() {
-    // deep copy minimal state (bodies, scores, alive, food)
     const state = {
       tick: lastTick,
       food,
@@ -297,14 +266,11 @@
         color: p.color
       }))
     };
-    // Post to RN so RN can forward to remote peer over datachannel
     postToNative({ action: "state", state });
   }
 
-  /* ------- When client receives authoritative state from host ------- */
   function applyStateFromHost(state) {
     if (!state || !state.players) return;
-    // Replace local players state (client is render-only)
     players = state.players.map(p => ({
       body: p.body.slice(),
       dir: DIRS.right,
@@ -314,13 +280,12 @@
       alive: p.alive !== false,
     }));
     food = state.food;
-    // render
     CELL = Math.floor(canvas.width / GRID);
     draw();
     updateScoreUI();
   }
 
-  /* ------- Draw routine (same as before) ------- */
+  /* ------- Draw ------- */
   function drawCell(x, y, color, border = true) {
     ctx.fillStyle = color;
     ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
@@ -342,12 +307,9 @@
 
     if (food) drawCell(food.x, food.y, "#ffcc00", false);
 
-    players.forEach((p, idx) => {
+    players.forEach((p) => {
       if (p.body.length > 0) drawCell(p.body[0].x, p.body[0].y, p.color);
-      for (let i = 1; i < p.body.length; i++) {
-        const b = p.body[i];
-        drawCell(b.x, b.y, shadeColor(p.color, -12));
-      }
+      for (let i = 1; i < p.body.length; i++) drawCell(p.body[i].x, p.body[i].y, shadeColor(p.color, -12));
       if (!p.alive) {
         ctx.fillStyle = "rgba(0,0,0,0.5)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -371,85 +333,56 @@
     p2ScoreEl.textContent = `P2: ${players[1]?.score ?? 0}`;
   }
 
-  function createRoom(s){
-    
-  }
-
-  /* ------- Message entry points from RN and peer ------- */
-
-  // RN injects important control messages here:
-  // - { type: 'assign', player: 'A'|'B' }  <- assign role
-  // - { type: 'start' }                    <- start game (host & client)
+  /* ------- RN message handler ------- */
   window.onRNMessage = function (msg) {
     try {
       if (!msg) return;
       if (msg.type === "assign") {
-        role = msg.player; // "A" or "B"
+        role = msg.player;
         isHost = role === "A";
         localPlayerIndex = role === "A" ? 0 : 1;
         log(`Assigned role: ${role} (${isHost ? "host" : "client"})`);
-        draw();
-        // client waits for host; host may auto-start if requested
+
+        if (!isHost) {
+          // initialize placeholder players for client
+          players = [
+            makePlayer(Math.floor(GRID * 0.25), Math.floor(GRID / 2), "#2db0ff"),
+            makePlayer(Math.floor(GRID * 0.75), Math.floor(GRID / 2), "#7fff9c"),
+          ];
+          draw(); // render immediately
+        }
+
       } else if (msg.type === "start") {
-        if (isHost) {
-          startAsHost();
-        } else {
-          startAsClient();
-        }
+        if (isHost) startAsHost();
+        else startAsClient();
       } else if (msg.type === "setGrid") {
-        if (typeof msg.grid === "number") {
-          GRID = msg.grid;
-        }
+        if (typeof msg.grid === "number") GRID = msg.grid;
       }
     } catch (e) {
       console.warn("onRNMessage error", e);
     }
   };
 
-  // Messages coming from the remote peer (forwarded by RN via setOnMessage)
-  // Expected shapes:
-  //  { type: 'dir', player: 'A'|'B', dir: 'up'|'left'...' }    // input forwarded
-  //  { type: 'state', state: { players: [...], food: {...}, tick } } // host -> client authoritative state
-  //  { type: 'start' }  // optional start forwarded
+  /* ------- Peer message handler ------- */
   window.onPeerMessage = function (msg) {
     try {
       if (!msg || !msg.type) return;
 
       if (msg.type === "dir") {
-        // remote player's input; if host, apply it to the simulation immediately
         const remotePlayer = msg.player === "A" ? 0 : 1;
         const dirKey = msg.dir;
-        if (isHost) {
-          trySetDir(remotePlayer, DIRS[dirKey]);
-        } else {
-          // clients don't run simulation; optionally you could show input prediction
-        }
+        if (isHost) trySetDir(remotePlayer, DIRS[dirKey]);
       } else if (msg.type === "state") {
-        // authoritative state from host
-        if (!isHost) {
-          applyStateFromHost(msg.state);
-        } else {
-          // if host receives its own state echoed back, ignore
-        }
+        if (!isHost) applyStateFromHost(msg.state);
       } else if (msg.type === "start") {
-        if (!isHost) {
-          startAsClient();
-        }
+        if (!isHost) startAsClient();
       }
     } catch (e) {
       console.warn("onPeerMessage error", e);
     }
   };
 
-  /* ------- Initialize (auto-start small demo only for local testing) ------- */
-  function init() {
-    // keep paused — real start happens after assign + start
-    // However for local debugging we can auto-start as host if nobody assigns.
-    // We'll keep it paused here and rely on RN to assign roles.
-    log("Snake network module initialized, awaiting role assignment and start");
-  }
-
-  
+  /* ------- Room management ------- */
   function joinRoom(roomId) {
     if (!roomId || roomId.trim() === "") {
       log("❌ Join Room: Room ID cannot be empty");
@@ -468,8 +401,6 @@
     postToNative({ action: "createRoom", roomId });
   }
 
-  /* ---------------- EVENT LISTENERS FOR BUTTONS ---------------- */
-
   document.getElementById("joinRoomBtn").addEventListener("click", () => {
     const id = document.getElementById("joinRoomInput").value;
     joinRoom(id);
@@ -480,10 +411,10 @@
     createRoom(id);
   });
 
+  function init() {
+    log("Snake network module initialized, awaiting role assignment and start");
+  }
+
   init();
-
-  // expose restart for debug
   window.__snake_restart = restart;
-
 })();
-
