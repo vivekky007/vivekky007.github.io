@@ -19,6 +19,14 @@
     el.appendChild(d);
     el.scrollTop = el.scrollHeight;
   }
+  function logMsg(prefix, obj) {
+    try {
+      log(`${prefix} ${typeof obj === "string" ? obj : JSON.stringify(obj)}`);
+    } catch (e) {
+      log(`${prefix} (unserializable)`);
+    }
+  }
+
 
   /* ------- Announce ready to RN ------- */
   postToNative({ action: "ready" });
@@ -472,5 +480,6 @@
   init();
   window.__snake_restart = restart;
 })();
+
 
 
