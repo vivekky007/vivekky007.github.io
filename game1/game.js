@@ -384,22 +384,33 @@
 
   /* ------- Room management ------- */
   function joinRoom(roomId) {
-    if (!roomId || roomId.trim() === "") {
-      log("❌ Join Room: Room ID cannot be empty");
+    if (!roomId) {
+      log("❌ Room ID is empty");
       return;
     }
-    log("Joining room: " + roomId);
+  
+    log("Joined Room: " + roomId);
+  
+    const label = document.getElementById("roomLabel");
+    if (label) label.textContent = "Room: " + roomId;
+  
     postToNative({ action: "joinRoom", roomId });
   }
 
   function createRoom(roomId) {
-    if (!roomId || roomId.trim() === "") {
-      log("❌ Create Room: Room ID cannot be empty");
+    if (!roomId) {
+      log("❌ Room ID is empty");
       return;
     }
-    log("Creating room: " + roomId);
+  
+    log("Created Room: " + roomId);
+  
+    const label = document.getElementById("roomLabel");
+    if (label) label.textContent = "Room: " + roomId;
+  
     postToNative({ action: "createRoom", roomId });
   }
+
 
   document.getElementById("joinRoomBtn").addEventListener("click", () => {
     const id = document.getElementById("joinRoomInput").value;
@@ -418,3 +429,4 @@
   init();
   window.__snake_restart = restart;
 })();
+
