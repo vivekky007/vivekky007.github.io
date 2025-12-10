@@ -7,15 +7,20 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h3>Two-Player Snake (Local Multiplayer)</h3>
+  <h3>Two-Player Snake (Multiplayer)</h3>
 
   <div id="topbar">
+
+    <!-- Scores -->
     <div id="scores">
       <span id="p1Score">P1: 0</span>
       <span id="p2Score">P2: 0</span>
     </div>
+
+    <!-- Controls + Room Input -->
     <div id="controlsRow">
       <button id="startBtn">Start / Restart</button>
+
       <label>
         Grid:
         <select id="gridSize">
@@ -24,6 +29,7 @@
           <option value="25">25</option>
         </select>
       </label>
+
       <label>
         Speed:
         <select id="speed">
@@ -32,13 +38,26 @@
           <option value="180">Slow</option>
         </select>
       </label>
+
+      <!-- 🔥 Room Input -->
+      <label>
+        Room:
+        <input id="roomInput" type="text" placeholder="Enter room ID" />
+      </label>
+
+      <!-- 🔥 Join Button -->
+      <button id="joinRoomBtn">Join</button>
+
+      <!-- Optional: Create Room 
+      <button id="createRoomBtn">Create Room</button>
+      -->
     </div>
   </div>
 
   <div id="gameArea">
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Touch controls for mobile: left block = player1 (blue), right block = player2 (green) -->
+    <!-- Touch Controls -->
     <div id="touchControls">
       <div class="pad pad-left" data-player="1">
         <button class="btn up" data-dir="up">↑</button>
@@ -65,4 +84,3 @@
   <script src="game.js"></script>
 </body>
 </html>
-
