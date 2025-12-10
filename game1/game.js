@@ -388,6 +388,7 @@
         isHost = role === "A";
         localPlayerIndex = role === "A" ? 0 : 1;
         log(`Assigned role: ${role} (${isHost ? "host" : "client"})`);
+        draw();
         // client waits for host; host may auto-start if requested
       } else if (msg.type === "start") {
         if (isHost) {
@@ -485,3 +486,4 @@
   window.__snake_restart = restart;
 
 })();
+
