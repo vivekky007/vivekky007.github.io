@@ -1,69 +1,67 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>WebView Message Tester</title>
-<style>
-body {
-  font-family: system-ui, sans-serif;
-  padding: 20px;
-}
-input, button {
-  padding: 10px;
-  font-size: 16px;
-}
-#log {
-  margin-top: 15px;
-  padding: 10px;
-  background: #111;
-  color: #ddd;
-  height: 200px;
-  overflow-y: auto;
-}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WebView Snake — Multiplayer</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <h3>Two-Player Snake (Local Multiplayer)</h3>
 
-<h3>Send Message to React Native</h3>
+  <div id="topbar">
+    <div id="scores">
+      <span id="p1Score">P1: 0</span>
+      <span id="p2Score">P2: 0</span>
+    </div>
+    <div id="controlsRow">
+      <button id="startBtn">Start / Restart</button>
+      <label>
+        Grid:
+        <select id="gridSize">
+          <option value="16">16</option>
+          <option value="20" selected>20</option>
+          <option value="25">25</option>
+        </select>
+      </label>
+      <label>
+        Speed:
+        <select id="speed">
+          <option value="80">Fast</option>
+          <option value="120" selected>Normal</option>
+          <option value="180">Slow</option>
+        </select>
+      </label>
+    </div>
+  </div>
 
-<input id="msgInput" placeholder="Type a message..." />
-<button id="sendBtn">Send</button>
+  <div id="gameArea">
+    <canvas id="gameCanvas"></canvas>
 
-<div id="log"></div>
+    <!-- Touch controls for mobile: left block = player1 (blue), right block = player2 (green) -->
+    <div id="touchControls">
+      <div class="pad pad-left" data-player="1">
+        <button class="btn up" data-dir="up">↑</button>
+        <div class="row">
+          <button class="btn left" data-dir="left">←</button>
+          <button class="btn right" data-dir="right">→</button>
+        </div>
+        <button class="btn down" data-dir="down">↓</button>
+      </div>
 
-<script>
-function log(msg) {
-  const div = document.createElement("div");
-  div.textContent = msg;
-  document.getElementById("log").appendChild(div);
-}
+      <div class="pad pad-right" data-player="2">
+        <button class="btn up" data-dir="up">↑</button>
+        <div class="row">
+          <button class="btn left" data-dir="left">←</button>
+          <button class="btn right" data-dir="right">→</button>
+        </div>
+        <button class="btn down" data-dir="down">↓</button>
+      </div>
+    </div>
+  </div>
 
-/* Send message to RN */
-function sendToNative(obj) {
-  try {
-    if (window.ReactNativeWebView?.postMessage) {
-      window.ReactNativeWebView.postMessage(JSON.stringify(obj));
-      log("Sent to RN: " + JSON.stringify(obj));
-    }
-  } catch (e) {
-    console.warn("postMessage failed", e);
-  }
-}
+  <div id="log"></div>
 
-/* INPUT BUTTON */
-document.getElementById("sendBtn").onclick = () => {
-  const text = document.getElementById("msgInput").value.trim();
-  if (!text) return;
-
-  sendToNative({ message: text });
-  document.getElementById("msgInput").value = "";
-};
-
-/* AUTO-SEND READY EVENT */
-sendToNative({ action: "ready" });
-log("Sent READY to RN");
-</script>
-
+  <script src="snake.js"></script>
 </body>
 </html>
