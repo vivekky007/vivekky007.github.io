@@ -28,8 +28,11 @@
   }
 
   function showGameScreen() {
-    document.getElementById("loginScreen").style.display = "none";
-    document.getElementById("gameArea").style.display = "block";
+    const login = document.getElementById("loginScreen");
+    const game = document.getElementById("gameScreen");
+  
+    if (login) login.style.display = "none";
+    if (game) game.style.display = "block";
   }
 
   /* ------- Announce ready to RN ------- */
@@ -527,4 +530,5 @@
   init();
   window.__snake_restart = restart;
 })();
+
 
