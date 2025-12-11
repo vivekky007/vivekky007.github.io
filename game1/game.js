@@ -251,7 +251,15 @@
 
     postToNative({ action: "createRoom", roomId });
   }
-
+  document.getElementById("startBtn")?.addEventListener("click", () => {
+    if (isHost) {
+      // Host immediately starts the game
+      startAsHost();
+    } else {
+      // Client requests host to start
+      postToNative({ action: "start" });
+    }
+  });
   document.getElementById("joinRoomBtn")?.addEventListener("click", () => {
     const id = document.getElementById("joinRoomInput")?.value.trim();
     joinRoom(id);
@@ -264,3 +272,4 @@
 
   window.__snake_restart = restart;
 })();
+
