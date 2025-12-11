@@ -27,6 +27,10 @@
     }
   }
 
+  function showGameScreen() {
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("gameArea").style.display = "block";
+  }
 
   /* ------- Announce ready to RN ------- */
   postToNative({ action: "ready" });
@@ -161,6 +165,7 @@
     postToNative({ action: "startedAsHost" });
 
     sendStateToPeer();
+    showGameScreen();
   }
 
   /* ------- Client: render-only ------- */
@@ -171,6 +176,7 @@
     // client waits for states from host
     running = true;
     log("Client ready, awaiting host state");
+    showGameScreen();
   }
 
   function restart() {
@@ -379,6 +385,8 @@
     p2ScoreEl.textContent = `P2: ${players[1]?.score ?? 0}`;
   }
 
+  
+
   /* ------- RN message handler ------- */
   window.onRNMessage = function (msg) {
     try {
@@ -408,6 +416,7 @@
           ];
           draw(); // render immediately
         }
+        showGameScreen();
 
       } else if (msg.type === "start") {
         log("RN requested start");
