@@ -44,6 +44,44 @@
   window.addEventListener("resize", resizeCanvas);
   resizeCanvas();
 
+  let touchStartX = 0;
+  let touchStartY = 0;
+  const SWIPE_THRESHOLD = 30; 
+  /* ------- Edge Touch Controls ------- */
+  canvas.addEventListener("touchstart", (e) => {
+    const t = e.changedTouches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+  });
+
+  canvas.addEventListener("touchend", (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+
+    // Determine if it's a valid swipe
+    if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) {
+      return; // Ignore tiny touches
+    }
+
+    let dir = null;
+
+    // Horizontal vs Vertical detection
+    if (Math.abs(dx) > Math.abs(dy)) {
+      // Horizontal swipe
+      dir = dx > 0 ? "right" : "left";
+    } else {
+      // Vertical swipe
+      dir = dy > 0 ? "down" : "up";
+    }
+
+    if (dir) {
+      sendLocalDir(dir); // send to RN/WebRTC
+      e.preventDefault();
+    }
+  });
+
+
   const p1ScoreEl = document.getElementById("p1Score");
   const p2ScoreEl = document.getElementById("p2Score");
   const startBtn = document.getElementById("startBtn");
@@ -480,5 +518,4 @@
   init();
   window.__snake_restart = restart;
 })();
-
 
