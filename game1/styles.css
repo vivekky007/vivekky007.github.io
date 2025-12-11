@@ -84,20 +84,11 @@ h3 { margin: 0 0 12px 0; }
   gap:6px;
 }
 
-/* log styling */
-#log {
-  margin-top:12px;
-  padding:8px;
-  background: #0b1211;
-  color:#ccc;
-  height:120px;
-  overflow:auto;
-  border-radius:6px;
-  font-size:13px;
-}
+
 
 /* Responsive smaller canvas on narrow screens */
 @media (max-width:720px){
   #gameCanvas { width: 320px; height: 320px; }
   #touchControls { flex-direction:row; }
 }
+
