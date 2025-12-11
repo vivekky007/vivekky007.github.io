@@ -10,16 +10,30 @@
 <body>
   <h3>Two-Player Snake (Multiplayer)</h3>
 
-  <div id="topbar">
+  <!-- LOGIN / ROOM SCREEN -->
+  <div id="loginScreen">
+    <div id="roomLabel" style="color:black;margin:10px 0;">Room: Not set</div>
+    <label>
+      Room:
+      <input id="joinRoomInput" type="text" placeholder="Enter room ID" />
+    </label>
+    <button id="joinRoomBtn">Join</button>
 
-    <!-- Scores -->
-    <div id="scores">
-      <span id="p1Score">P1: 0</span>
-      <span id="p2Score">P2: 0</span>
-    </div>
+    <label>
+      Create Room:
+      <input id="createRoomInput" type="text" placeholder="New room ID" />
+    </label>
+    <button id="createRoomBtn">Create</button>
+  </div>
 
-    <!-- Controls + Room Input -->
-    <div id="controlsRow">
+  <!-- GAME SCREEN -->
+  <div id="gameScreen" style="display:none;">
+    <div id="topbar">
+      <div id="scores">
+        <span id="p1Score">P1: 0</span>
+        <span id="p2Score">P2: 0</span>
+      </div>
+
       <button id="startBtn">Start / Restart</button>
 
       <label>
@@ -39,35 +53,21 @@
           <option value="180">Slow</option>
         </select>
       </label>
-
-      <div id="roomLabel" style="color:black;margin:10px 0;">Room: Not set</div>
-      <label>
-        Room:
-        <input id="joinRoomInput" type="text" placeholder="Enter room ID" />
-      </label>
-      <button id="joinRoomBtn">Join</button>
-
-      <label>
-        Create Room:
-        <input id="createRoomInput" type="text" placeholder="New room ID" />
-      </label>
-      <button id="createRoomBtn">Create</button>
-
     </div>
-  </div>
 
-  <div id="gameArea">
-    <canvas id="gameCanvas"></canvas>
+    <div id="gameArea">
+      <canvas id="gameCanvas"></canvas>
 
-    <!-- Touch Controls -->
-    <div id="touchControls">
-      <div class="pad pad-left" data-player="1">
-        <button class="btn up" data-dir="up">↑</button>
-        <div class="row">
-          <button class="btn left" data-dir="left">←</button>
-          <button class="btn right" data-dir="right">→</button>
+      <!-- Touch Controls -->
+      <div id="touchControls">
+        <div class="pad pad-left" data-player="1">
+          <button class="btn up" data-dir="up">↑</button>
+          <div class="row">
+            <button class="btn left" data-dir="left">←</button>
+            <button class="btn right" data-dir="right">→</button>
+          </div>
+          <button class="btn down" data-dir="down">↓</button>
         </div>
-        <button class="btn down" data-dir="down">↓</button>
       </div>
     </div>
   </div>
@@ -76,5 +76,6 @@
 
   <script src="game.js"></script>
 </body>
+
 </html>
 
