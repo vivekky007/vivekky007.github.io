@@ -14,11 +14,21 @@
   function log(msg) {
     const el = document.getElementById("log");
     if (!el) return;
+  
+    const timeMsg = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  
+    // local display
     const d = document.createElement("div");
-    d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    d.textContent = timeMsg;
     el.appendChild(d);
     el.scrollTop = el.scrollHeight;
+  
+    // send to peer
+    if (role) {
+      broadcastLog(timeMsg);
+    }
   }
+
   function logMsg(prefix, obj) {
     try {
       log(`${prefix} ${typeof obj === "string" ? obj : JSON.stringify(obj)}`);
@@ -480,6 +490,7 @@
   init();
   window.__snake_restart = restart;
 })();
+
 
 
 
