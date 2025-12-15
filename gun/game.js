@@ -1,5 +1,5 @@
 /************************************************************
- * Multiplayer Gun – WebView Version (with Start Button)
+ * Multiplayer Gun – WebView Version (Corrected Full JS)
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -29,19 +29,29 @@ function sendToRN(data) {
 }
 
 window.onRNMessage = function (msg) {
+  if (!msg) return;
+
   if (msg.type === "assign") {
     playerRole = msg.player;
     console.log("Assigned role:", playerRole);
-    if (playerRole === "B") createStartButton(); // Client shows button only if waiting for host
+    createStartButton(); // Show start button for both host and client
   }
 
   if (msg.type === "start") {
     startGame();
   }
+
+  if (msg.type === "state") {
+    if (playerRole === "B") applyRemoteState(msg.state);
+  }
 };
 
 /* ---------- CREATE START BUTTON ---------- */
 function createStartButton() {
+  // Remove existing button if present
+  const oldBtn = document.getElementById("startBtn");
+  if (oldBtn) oldBtn.remove();
+
   const btn = document.createElement("button");
   btn.innerText = "Start Game";
   btn.id = "startBtn";
@@ -52,9 +62,15 @@ function createStartButton() {
   btn.style.padding = "15px 30px";
   btn.style.fontSize = "20px";
   btn.style.cursor = "pointer";
+  btn.style.zIndex = 1000;
 
   btn.onclick = () => {
-    sendToRN({ action: "requestStart" }); // Client requests start
+    if (playerRole === "A") {
+      startGame(); // Host starts immediately
+      sendToRN({ action: "start" }); // Notify client
+    } else {
+      sendToRN({ action: "requestStart" }); // Client requests start
+    }
     btn.remove();
   };
 
