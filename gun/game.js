@@ -1,5 +1,5 @@
 /************************************************************
- * Multiplayer Gun – WebView Version (FINAL FIXED)
+ * Multiplayer Gun – WebView Version (FIXED)
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -7,25 +7,24 @@ const BOX = 80;
 const BULLET_SIZE = 12;
 const SPEED = 9;
 
-/* ---------- SCREEN ---------- */
 let W = window.innerWidth;
 let H = window.innerHeight;
 
 /* ---------- STATE ---------- */
-let mode = "lobby"; // lobby | game
+let mode = "lobby"; // "lobby" | "game"
 let bullets = [];
-let playerRole = null; // A | B
+let playerRole = null; // "A" | "B"
 let isHost = false;
 
 /* ---------- PLAYER DATA ---------- */
 const me = {
-  x: 60, y: 60, dx: 3, dy: 3,
+  x: 50, y: 50, dx: 3, dy: 3,
   angle: 0, health: 100,
   el: null, cannon: null, hp: null
 };
 
 const enemy = {
-  x: 300, y: 400, dx: 3, dy: 3,
+  x: 250, y: 400, dx: 3, dy: 3,
   angle: 0, health: 100,
   el: null, cannon: null, hp: null
 };
@@ -35,55 +34,39 @@ const lobby = document.getElementById("lobby");
 const statusEl = document.getElementById("status");
 const startBtn = document.getElementById("startBtn");
 
-const createBtn = document.getElementById("createBtn");
-const joinBtn = document.getElementById("joinBtn");
-const roomInput = document.getElementById("roomId");
-
-const shootBtn = document.getElementById("shootBtn");
-const aimZone = document.getElementById("aimZone");
-const stick = document.getElementById("stick");
-
-/* ---------- RN BRIDGE ---------- */
+/* ---------- RN ↔ WEBVIEW ---------- */
 function sendToRN(data) {
   window.ReactNativeWebView?.postMessage(JSON.stringify(data));
 }
 
-/* ---------- LOBBY BUTTONS ---------- */
-createBtn.onclick = () => {
-  const roomId = roomInput.value.trim();
-  if (!roomId) return alert("Enter Room ID");
-  sendToRN({ action: "createRoom", roomId });
-};
-
-joinBtn.onclick = () => {
-  const roomId = roomInput.value.trim();
-  if (!roomId) return alert("Enter Room ID");
-  sendToRN({ action: "joinRoom", roomId });
-};
-
-/* ---------- RN → WEBVIEW ---------- */
+/* ---------- RN MESSAGE HANDLER ---------- */
 window.onRNMessage = function (msg) {
   if (!msg) return;
+
   if (typeof msg === "string") {
     try { msg = JSON.parse(msg); } catch {}
   }
 
   console.log("📩 RN → WebView:", msg);
 
+  /* Role assignment */
   if (msg.type === "assign") {
     playerRole = msg.player;
     isHost = playerRole === "A";
-    startBtn.style.display = "block";
+    createStartButton();
   }
 
+  /* Start game */
   if (msg.type === "start") {
     startGame();
   }
 
+  /* State update (CLIENT ONLY) */
   if (msg.type === "state" && !isHost) {
     applyRemoteState(msg.state);
   }
 
+  /* Shooting (HOST ONLY) */
   if (msg.action === "shoot" && isHost) {
     const src = msg.player === "A" ? me : enemy;
     bullets.push({
@@ -95,19 +78,26 @@ window.onRNMessage = function (msg) {
   }
 };
 
-/* ---------- PEER BRIDGE ---------- */
-window.onPeerMessage = msg => window.onRNMessage(msg);
+/* 🔥 CRITICAL FIX: PEER → RN MESSAGE BRIDGE */
+window.onPeerMessage = function (msg) {
+  window.onRNMessage && window.onRNMessage(msg);
+};
 
 /* ---------- START BUTTON ---------- */
-startBtn.onclick = () => {
-  startBtn.style.display = "none";
-  if (isHost) {
-    startGame();
-    sendToRN({ action: "start" });
-  } else {
-    sendToRN({ action: "requestStart" });
-  }
-};
+function createStartButton() {
+  if (!startBtn) return;
+  startBtn.style.display = "block";
+
+  startBtn.onclick = () => {
+    startBtn.style.display = "none";
+    if (isHost) {
+      startGame();
+      sendToRN({ action: "start" });
+    } else {
+      sendToRN({ action: "requestStart" });
+    }
+  };
+}
 
 /* ---------- CREATE PLAYER ---------- */
 function createPlayer(isEnemy) {
@@ -136,6 +126,8 @@ function createPlayer(isEnemy) {
   ref.el = p;
   ref.cannon = cannon;
   ref.hp = hb;
+
+  if (!isEnemy) p.onclick = shoot;
 }
 
 /* ---------- START GAME ---------- */
@@ -171,6 +163,9 @@ function simulate() {
   move(me);
   move(enemy);
 
+  me.angle = Math.atan2(enemy.y - me.y, enemy.x - me.x);
+  enemy.angle = Math.atan2(me.y - enemy.y, me.x - enemy.x);
+
   bullets = bullets.filter(b => {
     b.x += Math.cos(b.angle) * SPEED;
     b.y += Math.sin(b.angle) * SPEED;
@@ -178,7 +173,12 @@ function simulate() {
     if (b.owner === "A" && hit(b, enemy)) { damage(enemy); return false; }
     if (b.owner === "B" && hit(b, me)) { damage(me); return false; }
 
-    return b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20;
+    return (
+      b.x > -BULLET_SIZE &&
+      b.x < W + BULLET_SIZE &&
+      b.y > -BULLET_SIZE &&
+      b.y < H + BULLET_SIZE
+    );
   });
 }
 
@@ -224,13 +224,20 @@ function hit(b, p) {
 function damage(p) {
   p.health = Math.max(0, p.health - 10);
   p.hp.style.width = p.health * 0.8 + "px";
+  flash(p.el);
 }
 
-/* ---------- SHOOT BUTTON ---------- */
-shootBtn.onclick = () => {
+function flash(el) {
+  const body = el.querySelector(".body");
+  body.classList.add("flash");
+  setTimeout(() => body.classList.remove("flash"), 120);
+}
+
+/* ---------- SHOOT ---------- */
+function shoot() {
   if (!playerRole) return;
   sendToRN({ action: "shoot", player: playerRole });
-};
+}
 
 /* ---------- STATE SYNC ---------- */
 let lastSent = 0;
@@ -250,44 +257,13 @@ function sendState() {
 }
 
 function applyRemoteState(state) {
+  if (!state) return;
   Object.assign(me, state.enemy);
   Object.assign(enemy, state.me);
 
   bullets.forEach(b => b.el?.remove());
   bullets = state.bullets || [];
 }
-
-/* ---------- AIM JOYSTICK ---------- */
-let aiming = false;
-let cx = 0, cy = 0;
-
-aimZone.onpointerdown = e => {
-  aiming = true;
-  const r = aimZone.getBoundingClientRect();
-  cx = r.left + r.width / 2;
-  cy = r.top + r.height / 2;
-};
-
-window.onpointermove = e => {
-  if (!aiming || mode !== "game") return;
-
-  let dx = e.clientX - cx;
-  let dy = e.clientY - cy;
-
-  const d = Math.hypot(dx, dy);
-  if (d > 40) {
-    dx = dx / d * 40;
-    dy = dy / d * 40;
-  }
-
-  stick.style.transform = `translate(${dx}px,${dy}px)`;
-  me.angle = Math.atan2(dy, dx);
-};
-
-window.onpointerup = () => {
-  aiming = false;
-  stick.style.transform = "translate(0,0)";
-};
 
 /* ---------- HELPERS ---------- */
 function strip(o) {
@@ -296,8 +272,50 @@ function strip(o) {
   return c;
 }
 
+/* ---------- AIM JOYSTICK ---------- */
+const aimZone = document.getElementById("aimZone");
+const stick = document.getElementById("stick");
+
+let aiming = false;
+let centerX = 0;
+let centerY = 0;
+
+aimZone.addEventListener("pointerdown", e => {
+  aiming = true;
+  const r = aimZone.getBoundingClientRect();
+  centerX = r.left + r.width / 2;
+  centerY = r.top + r.height / 2;
+});
+
+window.addEventListener("pointermove", e => {
+  if (!aiming || mode !== "game") return;
+
+  let dx = e.clientX - centerX;
+  let dy = e.clientY - centerY;
+
+  const dist = Math.hypot(dx, dy);
+  const max = 40;
+  if (dist > max) {
+    dx = dx / dist * max;
+    dy = dy / dist * max;
+  }
+
+  stick.style.transform = `translate(${dx}px, ${dy}px)`;
+
+  // Aim angle
+  me.angle = Math.atan2(dy, dx);
+
+  if (isHost) sendState();
+});
+
+window.addEventListener("pointerup", () => {
+  aiming = false;
+  stick.style.transform = "translate(0,0)";
+});
+
+
 /* ---------- RESIZE ---------- */
-window.onresize = () => {
+window.addEventListener("resize", () => {
   W = window.innerWidth;
   H = window.innerHeight;
-};
+});
