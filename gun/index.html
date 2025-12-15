@@ -2,46 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, user-scalable=no"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Multiplayer Gun</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
-
-  <!-- LOBBY -->
+  <!-- Lobby / Room setup -->
   <div id="lobby">
     <h1>Multiplayer Gun</h1>
-
     <input id="roomId" placeholder="Room ID" />
-
     <div>
-      <button id="createBtn">Create Room</button>
-      <button id="joinBtn">Join Room</button>
+      <button onclick="sendToRN({ action: 'createRoom', roomId: roomId.value })">Create Room</button>
+      <button onclick="sendToRN({ action: 'joinRoom', roomId: roomId.value })">Join Room</button>
     </div>
-
     <button id="startBtn" style="display:none;">Start Game</button>
   </div>
 
-  <!-- STATUS -->
+  <!-- Status display -->
   <div id="status">Not connected</div>
-
-  <!-- GAME ROOT (players, bullets are injected here by JS) -->
-  <div id="game"></div>
-
-  <!-- CONTROLS (VISIBLE ONLY IN GAME MODE) -->
-  <div id="controls" style="display:none;">
+  <div id="controls">
     <div id="aimZone">
       <div id="stick"></div>
     </div>
-
+  
     <button id="shootBtn">🔥</button>
   </div>
-
-  <!-- GAME SCRIPT MUST BE LAST -->
+  <!-- JS -->
   <script src="game.js"></script>
 
 </body>
