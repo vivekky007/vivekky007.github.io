@@ -1,29 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Multiplayer Gun</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multiplayer Gun</title>
+</head>
 
-  <body>
-    <div id="lobby">
-      <h1>Multiplayer Gun</h1>
-      <input id="roomId" placeholder="Room ID" />
-      <button
-        onclick="sendToRN({ action: 'createRoom', roomId: roomId.value })"
-      >
-        Create Room
-      </button>
-
-      <button onclick="sendToRN({ action: 'joinRoom', roomId: roomId.value })">
-        Join Room
-      </button>
+<body>
+  <!-- Lobby / Room setup -->
+  <div id="lobby">
+    <h1>Multiplayer Gun</h1>
+    <input id="roomId" placeholder="Room ID" />
+    <div>
+      <button onclick="sendToRN({ action: 'createRoom', roomId: roomId.value })">Create Room</button>
+      <button onclick="sendToRN({ action: 'joinRoom', roomId: roomId.value })">Join Room</button>
     </div>
+    <button id="startBtn" style="display:none;">Start Game</button>
+  </div>
 
-    <div id="status"></div>
+  <!-- Status display -->
+  <div id="status">Not connected</div>
 
-    <script src="game.js"></script>
-  </body>
+  <!-- JS -->
+  <script src="game.js"></script>
+</body>
 </html>
