@@ -272,47 +272,6 @@ function strip(o) {
   return c;
 }
 
-/* ---------- AIM JOYSTICK ---------- */
-const aimZone = document.getElementById("aimZone");
-const stick = document.getElementById("stick");
-
-let aiming = false;
-let centerX = 0;
-let centerY = 0;
-
-aimZone.addEventListener("pointerdown", e => {
-  aiming = true;
-  const r = aimZone.getBoundingClientRect();
-  centerX = r.left + r.width / 2;
-  centerY = r.top + r.height / 2;
-});
-
-window.addEventListener("pointermove", e => {
-  if (!aiming || mode !== "game") return;
-
-  let dx = e.clientX - centerX;
-  let dy = e.clientY - centerY;
-
-  const dist = Math.hypot(dx, dy);
-  const max = 40;
-  if (dist > max) {
-    dx = dx / dist * max;
-    dy = dy / dist * max;
-  }
-
-  stick.style.transform = `translate(${dx}px, ${dy}px)`;
-
-  // Aim angle
-  me.angle = Math.atan2(dy, dx);
-
-  if (isHost) sendState();
-});
-
-window.addEventListener("pointerup", () => {
-  aiming = false;
-  stick.style.transform = "translate(0,0)";
-});
-
 
 /* ---------- RESIZE ---------- */
 window.addEventListener("resize", () => {
