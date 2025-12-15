@@ -1,5 +1,5 @@
 /************************************************************
- * Multiplayer Gun – WebView Version (Host-Authoritative)
+ * Multiplayer Gun – WebView Version (Fully Corrected)
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -17,7 +17,7 @@ let playerRole = null; // "A" or "B"
 
 /* ---------- PLAYER DATA ---------- */
 const me = { x: 50, y: 50, dx: 3, dy: 3, angle: 0, health: 100, el: null, cannon: null, hp: null };
-const enemy = { x: 250, y: 400, angle: 0, health: 100, el: null, cannon: null, hp: null };
+const enemy = { x: 250, y: 400, dx: 3, dy: 3, angle: 0, health: 100, el: null, cannon: null, hp: null };
 
 /* ---------- DOM ---------- */
 const lobby = document.getElementById("lobby");
@@ -41,20 +41,17 @@ window.onRNMessage = function (msg) {
     startGame();
   }
 
-  if (msg.type === "state") {
+  if (msg.action === "state") {
     if (playerRole === "B") applyRemoteState(msg.state);
   }
 
   if (msg.action === "shoot") {
-    // Only host simulates bullets
     if (playerRole === "A") {
-      if (msg.player === "B") {
-        bullets.push({
-          x: enemy.x + BOX / 2,
-          y: enemy.y + BOX / 2,
-          angle: enemy.angle,
-          owner: "enemy",
-        });
+      // Host adds bullets for both players
+      if (msg.player === "A") {
+        bullets.push({ x: me.x + BOX/2, y: me.y + BOX/2, angle: me.angle, owner: "me" });
+      } else {
+        bullets.push({ x: enemy.x + BOX/2, y: enemy.y + BOX/2, angle: enemy.angle, owner: "enemy" });
       }
     }
   }
@@ -154,16 +151,23 @@ function loop() {
 
 /* ---------- SIMULATION (HOST ONLY) ---------- */
 function simulate() {
-  // Move host player (me)
+  // Move host player
   me.x += me.dx;
   me.y += me.dy;
   if (me.x < 0 || me.x > W - BOX) me.dx *= -1;
   if (me.y < 0 || me.y > H - BOX) me.dy *= -1;
 
-  // Move enemy (simulated by host)
-  enemy.angle = Math.atan2(me.y - enemy.y, me.x - enemy.x);
-  me.angle = Math.atan2(enemy.y - me.y, enemy.x - me.x);
+  // Move client player
+  enemy.x += enemy.dx;
+  enemy.y += enemy.dy;
+  if (enemy.x < 0 || enemy.x > W - BOX) enemy.dx *= -1;
+  if (enemy.y < 0 || enemy.y > H - BOX) enemy.dy *= -1;
 
+  // Rotate cannons
+  me.angle = Math.atan2(enemy.y - me.y, enemy.x - me.x);
+  enemy.angle = Math.atan2(me.y - enemy.y, me.x - enemy.x);
+
+  // Update bullets
   bullets = bullets.filter(b => {
     b.x += Math.cos(b.angle) * SPEED;
     b.y += Math.sin(b.angle) * SPEED;
@@ -217,7 +221,6 @@ function damage(player) {
 /* ---------- SHOOT ---------- */
 function shoot() {
   if (!playerRole) return;
-  // Send shoot command to host
   sendToRN({ action: "shoot", player: playerRole });
 }
 
@@ -236,8 +239,14 @@ function sendState() {
 
 /* ---------- APPLY REMOTE STATE ---------- */
 function applyRemoteState(state) {
-  Object.assign(me, state.me);
-  Object.assign(enemy, state.enemy);
+  if (playerRole === "B") {
+    // Swap roles so me = local player
+    Object.assign(me, state.enemy);
+    Object.assign(enemy, state.me);
+  } else {
+    Object.assign(me, state.me);
+    Object.assign(enemy, state.enemy);
+  }
 
   bullets.forEach(b => b.el?.remove());
   bullets = state.bullets || [];
