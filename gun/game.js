@@ -1,5 +1,5 @@
 /************************************************************
- * Multiplayer Gun – WebView Version (Corrected Full JS)
+ * Multiplayer Gun – WebView Version (Host-Authoritative)
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -34,7 +34,7 @@ window.onRNMessage = function (msg) {
   if (msg.type === "assign") {
     playerRole = msg.player;
     console.log("Assigned role:", playerRole);
-    createStartButton(); // Show start button for both host and client
+    createStartButton();
   }
 
   if (msg.type === "start") {
@@ -44,11 +44,24 @@ window.onRNMessage = function (msg) {
   if (msg.type === "state") {
     if (playerRole === "B") applyRemoteState(msg.state);
   }
+
+  if (msg.action === "shoot") {
+    // Only host simulates bullets
+    if (playerRole === "A") {
+      if (msg.player === "B") {
+        bullets.push({
+          x: enemy.x + BOX / 2,
+          y: enemy.y + BOX / 2,
+          angle: enemy.angle,
+          owner: "enemy",
+        });
+      }
+    }
+  }
 };
 
 /* ---------- CREATE START BUTTON ---------- */
 function createStartButton() {
-  // Remove existing button if present
   const oldBtn = document.getElementById("startBtn");
   if (oldBtn) oldBtn.remove();
 
@@ -66,10 +79,10 @@ function createStartButton() {
 
   btn.onclick = () => {
     if (playerRole === "A") {
-      startGame(); // Host starts immediately
-      sendToRN({ action: "start" }); // Notify client
+      startGame();
+      sendToRN({ action: "start" });
     } else {
-      sendToRN({ action: "requestStart" }); // Client requests start
+      sendToRN({ action: "requestStart" });
     }
     btn.remove();
   };
@@ -141,14 +154,15 @@ function loop() {
 
 /* ---------- SIMULATION (HOST ONLY) ---------- */
 function simulate() {
+  // Move host player (me)
   me.x += me.dx;
   me.y += me.dy;
-
   if (me.x < 0 || me.x > W - BOX) me.dx *= -1;
   if (me.y < 0 || me.y > H - BOX) me.dy *= -1;
 
-  me.angle = Math.atan2(enemy.y - me.y, enemy.x - me.x);
+  // Move enemy (simulated by host)
   enemy.angle = Math.atan2(me.y - enemy.y, me.x - enemy.x);
+  me.angle = Math.atan2(enemy.y - me.y, enemy.x - me.x);
 
   bullets = bullets.filter(b => {
     b.x += Math.cos(b.angle) * SPEED;
@@ -202,9 +216,9 @@ function damage(player) {
 
 /* ---------- SHOOT ---------- */
 function shoot() {
-  if (playerRole !== "A") return;
-
-  bullets.push({ x: me.x + BOX / 2, y: me.y + BOX / 2, angle: me.angle, owner: "me" });
+  if (!playerRole) return;
+  // Send shoot command to host
+  sendToRN({ action: "shoot", player: playerRole });
 }
 
 /* ---------- SEND STATE ---------- */
@@ -214,7 +228,10 @@ function sendState() {
   if (now - lastStateSent < 100) return;
   lastStateSent = now;
 
-  sendToRN({ action: "state", state: { me: strip(me), enemy: strip(enemy), bullets: bullets.map(strip) } });
+  sendToRN({ 
+    action: "state", 
+    state: { me: strip(me), enemy: strip(enemy), bullets: bullets.map(strip) } 
+  });
 }
 
 /* ---------- APPLY REMOTE STATE ---------- */
