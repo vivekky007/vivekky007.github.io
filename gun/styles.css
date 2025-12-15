@@ -119,3 +119,48 @@ body {
   border-radius: 50%;
   pointer-events: none; /* Allow clicks through bullets */
 }
+
+#controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* AIM JOYSTICK */
+#aimZone {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#stick {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.35);
+  left: 40px;
+  top: 40px;
+}
+
+/* SHOOT BUTTON */
+#shootBtn {
+  position: absolute;
+  right: 30px;
+  bottom: 40px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  font-size: 34px;
+  background: crimson;
+  color: white;
+  border: none;
+  pointer-events: auto;
+}
+
