@@ -1,6 +1,5 @@
 /************************************************************
- * Multiplayer Gun – WebView Version (Authoritative Host)
- * Works with React Native WebView + useFirestoreWebRTC
+ * Multiplayer Gun – WebView Version (with Start Button)
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -12,34 +11,17 @@ let W = window.innerWidth;
 let H = window.innerHeight;
 
 /* ---------- STATE ---------- */
-let mode = "lobby";
+let mode = "lobby"; // "lobby" or "game"
 let bullets = [];
-let lastStateSent = 0;
-
-window.playerRole = null; // "A" (host) or "B" (client)
+let playerRole = null; // "A" or "B"
 
 /* ---------- PLAYER DATA ---------- */
-const me = {
-  x: 50,
-  y: 50,
-  dx: 3,
-  dy: 3,
-  angle: 0,
-  health: 100,
-  el: null,
-  cannon: null,
-  hp: null
-};
+const me = { x: 50, y: 50, dx: 3, dy: 3, angle: 0, health: 100, el: null, cannon: null, hp: null };
+const enemy = { x: 250, y: 400, angle: 0, health: 100, el: null, cannon: null, hp: null };
 
-const enemy = {
-  x: 250,
-  y: 400,
-  angle: 0,
-  health: 100,
-  el: null,
-  cannon: null,
-  hp: null
-};
+/* ---------- DOM ---------- */
+const lobby = document.getElementById("lobby");
+const statusEl = document.getElementById("status");
 
 /* ---------- RN ↔ WEBVIEW BRIDGE ---------- */
 function sendToRN(data) {
@@ -47,33 +29,39 @@ function sendToRN(data) {
 }
 
 window.onRNMessage = function (msg) {
-  console.log("📩 RN → WebView:", msg);
-
   if (msg.type === "assign") {
-    window.playerRole = msg.player; // "A" or "B"
+    playerRole = msg.player;
+    console.log("Assigned role:", playerRole);
+    if (playerRole === "B") createStartButton(); // Client shows button only if waiting for host
   }
 
   if (msg.type === "start") {
-    if (mode === "lobby") startGame();
-  }
-
-  if (msg.type === "state") {
-    applyRemoteState(msg.state);
+    startGame();
   }
 };
 
-window.onPeerMessage = function (msg) {
-  console.log("📩 Peer → WebView:", msg);
-  if (msg.type === "state") {
-    applyRemoteState(msg.state);
-  }
-};
+/* ---------- CREATE START BUTTON ---------- */
+function createStartButton() {
+  const btn = document.createElement("button");
+  btn.innerText = "Start Game";
+  btn.id = "startBtn";
+  btn.style.position = "absolute";
+  btn.style.top = "50%";
+  btn.style.left = "50%";
+  btn.style.transform = "translate(-50%, -50%)";
+  btn.style.padding = "15px 30px";
+  btn.style.fontSize = "20px";
+  btn.style.cursor = "pointer";
 
-/* ---------- DOM ---------- */
-const lobby = document.getElementById("lobby");
-const statusEl = document.getElementById("status");
+  btn.onclick = () => {
+    sendToRN({ action: "requestStart" }); // Client requests start
+    btn.remove();
+  };
 
-/* ---------- INIT ---------- */
+  document.body.appendChild(btn);
+}
+
+/* ---------- CREATE PLAYERS ---------- */
 function createPlayer(isEnemy = false) {
   const p = document.createElement("div");
   p.className = "player";
@@ -110,6 +98,8 @@ function createPlayer(isEnemy = false) {
 
 /* ---------- START GAME ---------- */
 function startGame() {
+  if (mode === "game") return;
+
   lobby.style.display = "none";
   statusEl.innerText = "Connected ✔";
   mode = "game";
@@ -124,7 +114,7 @@ function startGame() {
 function loop() {
   if (mode !== "game") return;
 
-  if (window.playerRole === "A") {
+  if (playerRole === "A") {
     simulate();
     sendState();
   }
@@ -135,38 +125,23 @@ function loop() {
 
 /* ---------- SIMULATION (HOST ONLY) ---------- */
 function simulate() {
-  // Move player
   me.x += me.dx;
   me.y += me.dy;
 
   if (me.x < 0 || me.x > W - BOX) me.dx *= -1;
   if (me.y < 0 || me.y > H - BOX) me.dy *= -1;
 
-  // Auto aim
   me.angle = Math.atan2(enemy.y - me.y, enemy.x - me.x);
   enemy.angle = Math.atan2(me.y - enemy.y, me.x - enemy.x);
 
-  // Bullets
   bullets = bullets.filter(b => {
     b.x += Math.cos(b.angle) * SPEED;
     b.y += Math.sin(b.angle) * SPEED;
 
-    if (b.owner === "me" && hit(b, enemy)) {
-      damage(enemy);
-      return false;
-    }
+    if (b.owner === "me" && hit(b, enemy)) { damage(enemy); return false; }
+    if (b.owner === "enemy" && hit(b, me)) { damage(me); return false; }
 
-    if (b.owner === "enemy" && hit(b, me)) {
-      damage(me);
-      return false;
-    }
-
-    return (
-      b.x > -BULLET_SIZE &&
-      b.x < W + BULLET_SIZE &&
-      b.y > -BULLET_SIZE &&
-      b.y < H + BULLET_SIZE
-    );
+    return b.x > -BULLET_SIZE && b.x < W + BULLET_SIZE && b.y > -BULLET_SIZE && b.y < H + BULLET_SIZE;
   });
 }
 
@@ -193,19 +168,13 @@ function drawBullet(b) {
     document.body.appendChild(el);
     b.el = el;
   }
-
   b.el.style.left = b.x + "px";
   b.el.style.top = b.y + "px";
 }
 
 /* ---------- COLLISION ---------- */
 function hit(b, p) {
-  return (
-    b.x > p.x &&
-    b.x < p.x + BOX &&
-    b.y > p.y &&
-    b.y < p.y + BOX
-  );
+  return b.x > p.x && b.x < p.x + BOX && b.y > p.y && b.y < p.y + BOX;
 }
 
 /* ---------- DAMAGE ---------- */
@@ -217,30 +186,19 @@ function damage(player) {
 
 /* ---------- SHOOT ---------- */
 function shoot() {
-  if (window.playerRole !== "A") return;
+  if (playerRole !== "A") return;
 
-  bullets.push({
-    x: me.x + BOX / 2,
-    y: me.y + BOX / 2,
-    angle: me.angle,
-    owner: "me"
-  });
+  bullets.push({ x: me.x + BOX / 2, y: me.y + BOX / 2, angle: me.angle, owner: "me" });
 }
 
 /* ---------- SEND STATE ---------- */
+let lastStateSent = 0;
 function sendState() {
   const now = Date.now();
-  if (now - lastStateSent < 100) return; // 10 FPS
+  if (now - lastStateSent < 100) return;
   lastStateSent = now;
 
-  sendToRN({
-    action: "state",
-    state: {
-      me: strip(me),
-      enemy: strip(enemy),
-      bullets: bullets.map(strip)
-    }
-  });
+  sendToRN({ action: "state", state: { me: strip(me), enemy: strip(enemy), bullets: bullets.map(strip) } });
 }
 
 /* ---------- APPLY REMOTE STATE ---------- */
@@ -255,13 +213,11 @@ function applyRemoteState(state) {
 /* ---------- HELPERS ---------- */
 function strip(obj) {
   const copy = { ...obj };
-  delete copy.el;
-  delete copy.cannon;
-  delete copy.hp;
+  delete copy.el; delete copy.cannon; delete copy.hp;
   return copy;
 }
 
-/* ---------- EFFECT ---------- */
+/* ---------- FLASH EFFECT ---------- */
 function flash(el) {
   const body = el.querySelector(".body");
   body.classList.add("flash");
@@ -269,7 +225,4 @@ function flash(el) {
 }
 
 /* ---------- RESIZE ---------- */
-window.addEventListener("resize", () => {
-  W = window.innerWidth;
-  H = window.innerHeight;
-});
+window.addEventListener("resize", () => { W = window.innerWidth; H = window.innerHeight; });
