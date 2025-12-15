@@ -47,7 +47,7 @@ body {
 }
 
 #startBtn {
-  display: none; /* Initially hidden, JS will show */
+
   margin-top: 15px;
 }
 
