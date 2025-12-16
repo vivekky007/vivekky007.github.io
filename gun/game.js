@@ -172,6 +172,26 @@ function simulate() {
   });
 }
 
+function shoot() {
+  if (!playerRole || mode !== "game") return;
+
+  // Host adds bullet immediately
+  if (isHost) {
+    bullets.push({
+      x: me.x + BOX / 2,
+      y: me.y + BOX / 2,
+      angle: me.angle,
+      owner: playerRole
+    });
+  }
+
+  // Send shoot event to RN → host
+  sendToRN({ action: "shoot", player: playerRole });
+}
+
+if (shootBtn) shootBtn.onclick = shoot;
+
+
 function move(p) {
   p.x += p.dx;
   p.y += p.dy;
