@@ -8,7 +8,7 @@
 </head>
 
 <body>
-  <!-- Lobby / Room setup -->
+  <!-- Lobby -->
   <div id="lobby">
     <h1>Multiplayer Gun</h1>
     <input id="roomId" placeholder="Room ID" />
@@ -16,20 +16,20 @@
       <button onclick="sendToRN({ action: 'createRoom', roomId: roomId.value })">Create Room</button>
       <button onclick="sendToRN({ action: 'joinRoom', roomId: roomId.value })">Join Room</button>
     </div>
-    <button id="startBtn" style="display:none;">Start Game</button>
+    <button id="startBtn">Start Game</button>
   </div>
 
-  <!-- Status display -->
+  <!-- Status -->
   <div id="status">Not connected</div>
+
+  <!-- Controls -->
   <div id="controls">
     <div id="aimZone">
       <div id="stick"></div>
     </div>
-  
     <button id="shootBtn">🔥</button>
   </div>
-  <!-- JS -->
-  <script src="game.js"></script>
 
+  <script src="game.js" defer></script>
 </body>
 </html>
