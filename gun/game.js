@@ -1,6 +1,6 @@
 /************************************************************
  * Multiplayer Gun – WebView Version
- * HOST AUTHORITATIVE
+ * HOST AUTHORITATIVE (FIXED)
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -25,7 +25,7 @@ const me = {
 };
 
 const enemy = {
-  x: 260, y: 360, dx: 3, dy: 3,
+  x: 260, y: 360, dx: -3, dy: -3,
   angle: 0, health: 100,
   el: null, cannon: null, hp: null
 };
@@ -50,15 +50,17 @@ window.onRNMessage = msg => {
     try { msg = JSON.parse(msg); } catch { return; }
   }
 
-  /* ROLE */
+  /* ROLE ASSIGN */
   if (msg.type === "assign") {
     playerRole = msg.player;
     isHost = playerRole === "A";
     createStartButton();
   }
 
-  /* START */
-  if (msg.type === "start") startGame();
+  /* GAME START */
+  if (msg.type === "start") {
+    startGame();
+  }
 
   /* AIM INPUT (HOST ONLY) */
   if (msg.action === "aim" && isHost) {
@@ -77,7 +79,7 @@ window.onRNMessage = msg => {
     });
   }
 
-  /* STATE (CLIENT ONLY) */
+  /* STATE UPDATE (CLIENT ONLY) */
   if (msg.type === "state" && !isHost) {
     applyRemoteState(msg.state);
   }
@@ -136,13 +138,13 @@ function startGame() {
   lobby.style.display = "none";
   statusEl.textContent = "Connected ✔";
 
-  createPlayer(me);
-  createPlayer(enemy);
+  if (!me.el) createPlayer(me);
+  if (!enemy.el) createPlayer(enemy);
 
   requestAnimationFrame(loop);
 }
 
-/* ---------- LOOP ---------- */
+/* ---------- GAME LOOP ---------- */
 function loop() {
   if (mode !== "game") return;
 
@@ -155,7 +157,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-/* ---------- SIMULATION (HOST) ---------- */
+/* ---------- SIMULATION (HOST ONLY) ---------- */
 function simulate() {
   move(me);
   move(enemy);
@@ -241,19 +243,43 @@ function sendState() {
   });
 }
 
+/* ---------- CLIENT STATE APPLY (SAFE) ---------- */
 function applyRemoteState(state) {
-  Object.assign(me, state.me);
-  Object.assign(enemy, state.enemy);
+  me.x = state.me.x;
+  me.y = state.me.y;
+  me.angle = state.me.angle;
+  me.health = state.me.health;
+
+  enemy.x = state.enemy.x;
+  enemy.y = state.enemy.y;
+  enemy.angle = state.enemy.angle;
+  enemy.health = state.enemy.health;
+
+  me.hp.style.width = me.health * 0.8 + "px";
+  enemy.hp.style.width = enemy.health * 0.8 + "px";
 
   bullets.forEach(b => b.el?.remove());
-  bullets = state.bullets || [];
+  bullets = [];
+
+  for (const sb of state.bullets || []) {
+    bullets.push({
+      x: sb.x,
+      y: sb.y,
+      angle: sb.angle,
+      owner: sb.owner
+    });
+  }
 }
 
 /* ---------- HELPERS ---------- */
 function strip(o) {
-  const c = { ...o };
-  delete c.el; delete c.cannon; delete c.hp;
-  return c;
+  return {
+    x: o.x,
+    y: o.y,
+    angle: o.angle,
+    health: o.health,
+    owner: o.owner
+  };
 }
 
 /* ---------- AIM JOYSTICK ---------- */
