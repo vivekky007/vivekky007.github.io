@@ -47,7 +47,7 @@ function sendToRN(data) {
 window.onRNMessage = function (msg) {
   if (!msg) return;
   if (typeof msg === "string") {
-    try { msg = JSON.parse(msg); } catch {}
+    try { msg = JSON.parse(msg); } catch { }
   }
 
   console.log("📩 RN → WebView:", msg);
@@ -187,7 +187,16 @@ function move(p) {
 function shoot() {
   if (!playerRole || mode !== "game") return;
 
-  // Host immediately adds bullet locally
+  // Always send shooting + position + angle to host
+  sendToRN({
+    action: "shoot",
+    player: playerRole,
+    x: me.x,
+    y: me.y,
+    angle: me.angle
+  });
+
+  // If host, immediately add bullet locally
   if (isHost) {
     bullets.push({
       x: me.x + BOX / 2,
@@ -196,9 +205,6 @@ function shoot() {
       owner: playerRole
     });
   }
-
-  // Send shoot event to RN for host to handle
-  sendToRN({ action: "shoot", player: playerRole });
 }
 
 if (shootBtn) shootBtn.onclick = shoot;
@@ -231,7 +237,7 @@ function drawBullet(b) {
 /* ---------- COLLISION ---------- */
 function hit(b, p) {
   return b.x > p.x && b.x < p.x + BOX &&
-         b.y > p.y && b.y < p.y + BOX;
+    b.y > p.y && b.y < p.y + BOX;
 }
 
 function damage(p) {
