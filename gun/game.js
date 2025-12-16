@@ -68,11 +68,10 @@ window.onRNMessage = function (msg) {
 
   // Host handles shoot actions from client
   if (msg.action === "shoot" && isHost) {
-    const src = msg.player === "A" ? me : enemy;
     bullets.push({
-      x: src.x + BOX / 2,
-      y: src.y + BOX / 2,
-      angle: src.angle,
+      x: msg.x + BOX / 2,      // use client’s position
+      y: msg.y + BOX / 2,
+      angle: msg.angle,        // use client’s aim
       owner: msg.player
     });
   }
