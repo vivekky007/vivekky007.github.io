@@ -7,6 +7,9 @@
 const BOX = 80;
 const BULLET_SIZE = 12;
 const SPEED = 9;
+/* ---------- AIM STORAGE ---------- */
+let aimA = 0;
+let aimB = 0;
 
 let W = window.innerWidth;
 let H = window.innerHeight;
