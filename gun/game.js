@@ -1,6 +1,5 @@
 /************************************************************
- * Multiplayer Gun – WebView Version
- * MANUAL AIM + AIM SYNC + SHOOT BUTTON
+ * Multiplayer Gun – WebView Version (MANUAL AIM + SHOOT BTN)
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -12,7 +11,7 @@ let W = window.innerWidth;
 let H = window.innerHeight;
 
 /* ---------- STATE ---------- */
-let mode = "lobby";
+let mode = "lobby"; // "lobby" | "game"
 let bullets = [];
 let playerRole = null; // "A" | "B"
 let isHost = false;
@@ -35,8 +34,6 @@ const lobby = document.getElementById("lobby");
 const statusEl = document.getElementById("status");
 const startBtn = document.getElementById("startBtn");
 const shootBtn = document.getElementById("shootBtn");
-const aimZone = document.getElementById("aimZone");
-const stick = document.getElementById("stick");
 
 /* ---------- RN ↔ WEBVIEW ---------- */
 function sendToRN(data) {
@@ -47,28 +44,25 @@ function sendToRN(data) {
 window.onRNMessage = function (msg) {
   if (!msg) return;
   if (typeof msg === "string") {
-    try { msg = JSON.parse(msg); } catch { return; }
+    try { msg = JSON.parse(msg); } catch {}
   }
 
   console.log("📩 RN → WebView:", msg);
 
-  /* Role assignment */
   if (msg.type === "assign") {
     playerRole = msg.player;
     isHost = playerRole === "A";
     createStartButton();
   }
 
-  /* Start game */
-  if (msg.type === "start") startGame();
-
-  /* AIM UPDATE (HOST ONLY) */
-  if (msg.action === "aim" && isHost) {
-    if (msg.player === "A") me.angle = msg.angle;
-    if (msg.player === "B") enemy.angle = msg.angle;
+  if (msg.type === "start") {
+    startGame();
   }
 
-  /* SHOOT (HOST ONLY) */
+  if (msg.type === "state" && !isHost) {
+    applyRemoteState(msg.state);
+  }
+
   if (msg.action === "shoot" && isHost) {
     const src = msg.player === "A" ? me : enemy;
     bullets.push({
@@ -78,15 +72,12 @@ window.onRNMessage = function (msg) {
       owner: msg.player
     });
   }
-
-  /* STATE UPDATE (CLIENT ONLY) */
-  if (msg.type === "state" && !isHost) {
-    applyRemoteState(msg.state);
-  }
 };
 
-/* ---------- PEER BRIDGE ---------- */
-window.onPeerMessage = msg => window.onRNMessage(msg);
+/* ---------- PEER → RN BRIDGE ---------- */
+window.onPeerMessage = function (msg) {
+  window.onRNMessage && window.onRNMessage(msg);
+};
 
 /* ---------- START BUTTON ---------- */
 function createStartButton() {
@@ -234,32 +225,21 @@ function flash(el) {
 
 /* ---------- SHOOT BUTTON ---------- */
 function shoot() {
-  if (!playerRole || mode !== "game") return;
-
-  // Host shoots immediately
-  if (isHost) {
-    bullets.push({
-      x: me.x + BOX / 2,
-      y: me.y + BOX / 2,
-      angle: me.angle,
-      owner: playerRole
-    });
-  }
-
+  if (!playerRole) return;
   sendToRN({ action: "shoot", player: playerRole });
 }
 
-shootBtn.onclick = shoot;
+if (shootBtn) shootBtn.onclick = shoot;
 
 /* ---------- STATE SYNC ---------- */
 let lastSent = 0;
 function sendState() {
   const now = Date.now();
-  if (now - lastSent < 80) return;
+  if (now - lastSent < 100) return;
   lastSent = now;
 
   sendToRN({
-    type: "state",
+    action: "state",
     state: {
       me: strip(me),
       enemy: strip(enemy),
@@ -269,6 +249,7 @@ function sendState() {
 }
 
 function applyRemoteState(state) {
+  if (!state) return;
   Object.assign(me, state.enemy);
   Object.assign(enemy, state.me);
 
@@ -284,10 +265,12 @@ function strip(o) {
 }
 
 /* ---------- AIM JOYSTICK ---------- */
+const aimZone = document.getElementById("aimZone");
+const stick = document.getElementById("stick");
+
 let aiming = false;
 let centerX = 0;
 let centerY = 0;
-let lastSentAngle = 0;
 
 aimZone.addEventListener("pointerdown", e => {
   aiming = true;
@@ -310,15 +293,7 @@ window.addEventListener("pointermove", e => {
   }
 
   stick.style.transform = `translate(${dx}px, ${dy}px)`;
-
-  const angle = Math.atan2(dy, dx);
-  me.angle = angle;
-
-  // 🔥 SEND AIM TO HOST
-  if (!isHost && Math.abs(angle - lastSentAngle) > 0.02) {
-    lastSentAngle = angle;
-    sendToRN({ action: "aim", player: playerRole, angle });
-  }
+  me.angle = Math.atan2(dy, dx);
 });
 
 window.addEventListener("pointerup", () => {
@@ -331,3 +306,4 @@ window.addEventListener("resize", () => {
   W = window.innerWidth;
   H = window.innerHeight;
 });
+the aim is not sending from the client to host
