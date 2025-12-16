@@ -1,6 +1,5 @@
 /************************************************************
- * Multiplayer Gun – WebView Version
- * HOST AUTHORITATIVE (FIXED)
+ * Multiplayer Gun – WebView Version (MANUAL AIM + SHOOT BTN)
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -12,20 +11,20 @@ let W = window.innerWidth;
 let H = window.innerHeight;
 
 /* ---------- STATE ---------- */
-let mode = "lobby";
+let mode = "lobby"; // "lobby" | "game"
 let bullets = [];
 let playerRole = null; // "A" | "B"
 let isHost = false;
 
 /* ---------- PLAYER DATA ---------- */
 const me = {
-  x: 60, y: 60, dx: 3, dy: 3,
+  x: 50, y: 50, dx: 3, dy: 3,
   angle: 0, health: 100,
   el: null, cannon: null, hp: null
 };
 
 const enemy = {
-  x: 260, y: 360, dx: -3, dy: -3,
+  x: 250, y: 400, dx: 3, dy: 3,
   angle: 0, health: 100,
   el: null, cannon: null, hp: null
 };
@@ -35,8 +34,6 @@ const lobby = document.getElementById("lobby");
 const statusEl = document.getElementById("status");
 const startBtn = document.getElementById("startBtn");
 const shootBtn = document.getElementById("shootBtn");
-const aimZone = document.getElementById("aimZone");
-const stick = document.getElementById("stick");
 
 /* ---------- RN ↔ WEBVIEW ---------- */
 function sendToRN(data) {
@@ -44,53 +41,49 @@ function sendToRN(data) {
 }
 
 /* ---------- RN MESSAGE HANDLER ---------- */
-window.onRNMessage = msg => {
+window.onRNMessage = function (msg) {
   if (!msg) return;
   if (typeof msg === "string") {
-    try { msg = JSON.parse(msg); } catch { return; }
+    try { msg = JSON.parse(msg); } catch {}
   }
 
-  /* ROLE ASSIGN */
+  console.log("📩 RN → WebView:", msg);
+
   if (msg.type === "assign") {
     playerRole = msg.player;
     isHost = playerRole === "A";
     createStartButton();
   }
 
-  /* GAME START */
   if (msg.type === "start") {
     startGame();
   }
 
-  /* AIM INPUT (HOST ONLY) */
-  if (msg.action === "aim" && isHost) {
-    if (msg.player === "A") me.angle = msg.angle;
-    if (msg.player === "B") enemy.angle = msg.angle;
-  }
-
-  /* SHOOT INPUT (HOST ONLY) */
-  if (msg.action === "shoot" && isHost) {
-    const p = msg.player === "A" ? me : enemy;
-    bullets.push({
-      x: p.x + BOX / 2,
-      y: p.y + BOX / 2,
-      angle: p.angle,
-      owner: msg.player
-    });
-  }
-
-  /* STATE UPDATE (CLIENT ONLY) */
   if (msg.type === "state" && !isHost) {
     applyRemoteState(msg.state);
   }
+
+  if (msg.action === "shoot" && isHost) {
+    const src = msg.player === "A" ? me : enemy;
+    bullets.push({
+      x: src.x + BOX / 2,
+      y: src.y + BOX / 2,
+      angle: src.angle,
+      owner: msg.player
+    });
+  }
 };
 
-/* ---------- PEER BRIDGE ---------- */
-window.onPeerMessage = msg => window.onRNMessage(msg);
+/* ---------- PEER → RN BRIDGE ---------- */
+window.onPeerMessage = function (msg) {
+  window.onRNMessage && window.onRNMessage(msg);
+};
 
 /* ---------- START BUTTON ---------- */
 function createStartButton() {
+  if (!startBtn) return;
   startBtn.style.display = "block";
+
   startBtn.onclick = () => {
     startBtn.style.display = "none";
     if (isHost) {
@@ -103,7 +96,7 @@ function createStartButton() {
 }
 
 /* ---------- CREATE PLAYER ---------- */
-function createPlayer(ref) {
+function createPlayer(isEnemy) {
   const p = document.createElement("div");
   p.className = "player";
 
@@ -125,6 +118,7 @@ function createPlayer(ref) {
   p.appendChild(body);
   document.body.appendChild(p);
 
+  const ref = isEnemy ? enemy : me;
   ref.el = p;
   ref.cannon = cannon;
   ref.hp = hb;
@@ -133,13 +127,13 @@ function createPlayer(ref) {
 /* ---------- START GAME ---------- */
 function startGame() {
   if (mode === "game") return;
+
   mode = "game";
-
   lobby.style.display = "none";
-  statusEl.textContent = "Connected ✔";
+  statusEl.innerText = "Connected ✔";
 
-  if (!me.el) createPlayer(me);
-  if (!enemy.el) createPlayer(enemy);
+  createPlayer(false);
+  createPlayer(true);
 
   requestAnimationFrame(loop);
 }
@@ -199,6 +193,7 @@ function drawPlayer(p) {
   p.cannon.style.transform = `rotate(${p.angle}rad)`;
 }
 
+/* ---------- BULLETS ---------- */
 function drawBullet(b) {
   if (!b.el) {
     b.el = document.createElement("div");
@@ -219,22 +214,32 @@ function hit(b, p) {
 function damage(p) {
   p.health = Math.max(0, p.health - 10);
   p.hp.style.width = p.health * 0.8 + "px";
+  flash(p.el);
 }
 
-/* ---------- SHOOT ---------- */
-shootBtn.onclick = () => {
+function flash(el) {
+  const body = el.querySelector(".body");
+  body.classList.add("flash");
+  setTimeout(() => body.classList.remove("flash"), 120);
+}
+
+/* ---------- SHOOT BUTTON ---------- */
+function shoot() {
   if (!playerRole) return;
   sendToRN({ action: "shoot", player: playerRole });
-};
+}
+
+if (shootBtn) shootBtn.onclick = shoot;
 
 /* ---------- STATE SYNC ---------- */
 let lastSent = 0;
 function sendState() {
-  if (Date.now() - lastSent < 80) return;
-  lastSent = Date.now();
+  const now = Date.now();
+  if (now - lastSent < 100) return;
+  lastSent = now;
 
   sendToRN({
-    type: "state",
+    action: "state",
     state: {
       me: strip(me),
       enemy: strip(enemy),
@@ -243,50 +248,29 @@ function sendState() {
   });
 }
 
-/* ---------- CLIENT STATE APPLY (SAFE) ---------- */
 function applyRemoteState(state) {
-  me.x = state.me.x;
-  me.y = state.me.y;
-  me.angle = state.me.angle;
-  me.health = state.me.health;
-
-  enemy.x = state.enemy.x;
-  enemy.y = state.enemy.y;
-  enemy.angle = state.enemy.angle;
-  enemy.health = state.enemy.health;
-
-  me.hp.style.width = me.health * 0.8 + "px";
-  enemy.hp.style.width = enemy.health * 0.8 + "px";
+  if (!state) return;
+  Object.assign(me, state.enemy);
+  Object.assign(enemy, state.me);
 
   bullets.forEach(b => b.el?.remove());
-  bullets = [];
-
-  for (const sb of state.bullets || []) {
-    bullets.push({
-      x: sb.x,
-      y: sb.y,
-      angle: sb.angle,
-      owner: sb.owner
-    });
-  }
+  bullets = state.bullets || [];
 }
 
 /* ---------- HELPERS ---------- */
 function strip(o) {
-  return {
-    x: o.x,
-    y: o.y,
-    angle: o.angle,
-    health: o.health,
-    owner: o.owner
-  };
+  const c = { ...o };
+  delete c.el; delete c.cannon; delete c.hp;
+  return c;
 }
 
 /* ---------- AIM JOYSTICK ---------- */
+const aimZone = document.getElementById("aimZone");
+const stick = document.getElementById("stick");
+
 let aiming = false;
 let centerX = 0;
 let centerY = 0;
-let lastAngle = 0;
 
 aimZone.addEventListener("pointerdown", e => {
   aiming = true;
@@ -309,14 +293,7 @@ window.addEventListener("pointermove", e => {
   }
 
   stick.style.transform = `translate(${dx}px, ${dy}px)`;
-
-  const angle = Math.atan2(dy, dx);
-  me.angle = angle;
-
-  if (!isHost && Math.abs(angle - lastAngle) > 0.02) {
-    lastAngle = angle;
-    sendToRN({ action: "aim", player: playerRole, angle });
-  }
+  me.angle = Math.atan2(dy, dx);
 });
 
 window.addEventListener("pointerup", () => {
