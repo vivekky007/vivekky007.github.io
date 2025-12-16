@@ -1,6 +1,6 @@
 /************************************************************
  * Multiplayer Gun – WebView Version (MANUAL AIM + SHOOT BTN)
- * FIXED: Proper Aim Sync (rotation == aim)
+ * Host-authoritative shooting integrated
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -12,14 +12,10 @@ let W = window.innerWidth;
 let H = window.innerHeight;
 
 /* ---------- STATE ---------- */
-let mode = "lobby";
+let mode = "lobby"; // "lobby" | "game"
 let bullets = [];
 let playerRole = null; // "A" | "B"
 let isHost = false;
-
-/* ---------- AIM STORAGE (HOST) ---------- */
-let aimA = 0;
-let aimB = 0;
 
 /* ---------- PLAYER DATA ---------- */
 const me = {
@@ -54,54 +50,87 @@ window.onRNMessage = function (msg) {
     try { msg = JSON.parse(msg); } catch { }
   }
 
+  console.log("📩 RN → WebView:", msg);
+
   if (msg.type === "assign") {
     playerRole = msg.player;
     isHost = playerRole === "A";
     createStartButton();
   }
 
-  if (msg.type === "start") startGame();
-
-  if (msg.action === "aim" && isHost) {
-    if (msg.player === "A") aimA = msg.angle;
-    if (msg.player === "B") aimB = msg.angle;
+  if (msg.type === "start") {
+    startGame();
   }
 
   if (msg.type === "state" && !isHost) {
     applyRemoteState(msg.state);
   }
 
+  // Host handles shoot actions from client
   if (msg.action === "shoot" && isHost) {
     bullets.push({
-      x: msg.x + BOX / 2,
+      x: msg.x + BOX / 2,      // use client’s position
       y: msg.y + BOX / 2,
-      angle: msg.player === "A" ? aimA : aimB,
+      angle: msg.angle,        // use client’s aim
       owner: msg.player
     });
   }
 };
 
+/* ---------- PEER → RN BRIDGE ---------- */
+window.onPeerMessage = function (msg) {
+  window.onRNMessage && window.onRNMessage(msg);
+};
+
+/* ---------- START BUTTON ---------- */
 function createStartButton() {
   if (!startBtn) return;
-
   startBtn.style.display = "block";
 
   startBtn.onclick = () => {
     startBtn.style.display = "none";
-
     if (isHost) {
       startGame();
-      sendToRN({ type: "start" });
+      sendToRN({ action: "start" });
     } else {
       sendToRN({ action: "requestStart" });
     }
   };
 }
 
+/* ---------- CREATE PLAYER ---------- */
+function createPlayer(isEnemy) {
+  const p = document.createElement("div");
+  p.className = "player";
+
+  const body = document.createElement("div");
+  body.className = "body";
+
+  const cannon = document.createElement("div");
+  cannon.className = "cannon";
+
+  const hc = document.createElement("div");
+  hc.className = "health-container";
+
+  const hb = document.createElement("div");
+  hb.className = "health";
+
+  hc.appendChild(hb);
+  body.appendChild(cannon);
+  p.appendChild(hc);
+  p.appendChild(body);
+  document.body.appendChild(p);
+
+  const ref = isEnemy ? enemy : me;
+  ref.el = p;
+  ref.cannon = cannon;
+  ref.hp = hb;
+}
 
 /* ---------- START GAME ---------- */
 function startGame() {
   if (mode === "game") return;
+
   mode = "game";
   lobby.style.display = "none";
   statusEl.innerText = "Connected ✔";
@@ -153,22 +182,31 @@ function move(p) {
   if (p.y < 0 || p.y > H - BOX) p.dy *= -1;
 }
 
-/* ---------- SHOOT ---------- */
+/* ---------- SHOOT BUTTON ---------- */
 function shoot() {
   if (!playerRole || mode !== "game") return;
 
-  sendToRN({ action: "shoot", player: playerRole });
+  // Always send shooting + position + angle to host
+  sendToRN({
+    action: "shoot",
+    player: playerRole,
+    x: me.x,
+    y: me.y,
+    angle: me.angle
+  });
 
+  // If host, immediately add bullet locally
   if (isHost) {
     bullets.push({
       x: me.x + BOX / 2,
       y: me.y + BOX / 2,
-      angle: playerRole === "A" ? aimA : aimB,
+      angle: me.angle,
       owner: playerRole
     });
   }
 }
-shootBtn.onclick = shoot;
+
+if (shootBtn) shootBtn.onclick = shoot;
 
 /* ---------- RENDER ---------- */
 function render() {
@@ -184,6 +222,35 @@ function drawPlayer(p) {
   p.cannon.style.transform = `rotate(${p.angle}rad)`;
 }
 
+function drawBullet(b) {
+  if (!b.el) {
+    b.el = document.createElement("div");
+    b.el.className = "bullet";
+    b.el.style.background = b.owner === "A" ? "cyan" : "yellow";
+    document.body.appendChild(b.el);
+  }
+  b.el.style.left = b.x + "px";
+  b.el.style.top = b.y + "px";
+}
+
+/* ---------- COLLISION ---------- */
+function hit(b, p) {
+  return b.x > p.x && b.x < p.x + BOX &&
+    b.y > p.y && b.y < p.y + BOX;
+}
+
+function damage(p) {
+  p.health = Math.max(0, p.health - 10);
+  p.hp.style.width = p.health * 0.8 + "px";
+  flash(p.el);
+}
+
+function flash(el) {
+  const body = el.querySelector(".body");
+  body.classList.add("flash");
+  setTimeout(() => body.classList.remove("flash"), 120);
+}
+
 /* ---------- STATE SYNC ---------- */
 let lastSent = 0;
 function sendState() {
@@ -196,27 +263,31 @@ function sendState() {
     state: {
       me: strip(me),
       enemy: strip(enemy),
-      bullets: bullets.map(strip),
-      aim: { A: aimA, B: aimB }
+      bullets: bullets.map(strip)
     }
   });
 }
 
 function applyRemoteState(state) {
   if (!state) return;
-
   Object.assign(me, state.enemy);
   Object.assign(enemy, state.me);
-
-  if (playerRole === "A") enemy.angle = state.aim.B;
-  else enemy.angle = state.aim.A;
 
   bullets.forEach(b => b.el?.remove());
   bullets = state.bullets || [];
 }
 
+/* ---------- HELPERS ---------- */
+function strip(o) {
+  const c = { ...o };
+  delete c.el; delete c.cannon; delete c.hp;
+  return c;
+}
+
 /* ---------- AIM JOYSTICK ---------- */
-let aiming = false, centerX = 0, centerY = 0;
+let aiming = false;
+let centerX = 0;
+let centerY = 0;
 
 aimZone.addEventListener("pointerdown", e => {
   aiming = true;
@@ -231,15 +302,15 @@ window.addEventListener("pointermove", e => {
   let dx = e.clientX - centerX;
   let dy = e.clientY - centerY;
 
-  me.angle = Math.atan2(dy, dx);
-
-  sendToRN({
-    action: "aim",
-    player: playerRole,
-    angle: me.angle
-  });
+  const dist = Math.hypot(dx, dy);
+  const max = 40;
+  if (dist > max) {
+    dx = dx / dist * max;
+    dy = dy / dist * max;
+  }
 
   stick.style.transform = `translate(${dx}px, ${dy}px)`;
+  me.angle = Math.atan2(dy, dx);
 });
 
 window.addEventListener("pointerup", () => {
@@ -247,9 +318,8 @@ window.addEventListener("pointerup", () => {
   stick.style.transform = "translate(0,0)";
 });
 
-/* ---------- HELPERS ---------- */
-function strip(o) {
-  const c = { ...o };
-  delete c.el; delete c.cannon; delete c.hp;
-  return c;
-}
+/* ---------- RESIZE ---------- */
+window.addEventListener("resize", () => {
+  W = window.innerWidth;
+  H = window.innerHeight;
+});
