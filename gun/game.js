@@ -67,16 +67,14 @@ window.onRNMessage = function (msg) {
   }
 
   // Host handles shoot actions from client
-// Host handles shoot actions from client
-  if ((msg.action === "shoot" || msg.type === "shoot") && isHost) {
+  if (msg.action === "shoot" && isHost) {
     bullets.push({
-      x: msg.x + BOX / 2,
+      x: msg.x + BOX / 2,      // use client’s position
       y: msg.y + BOX / 2,
-      angle: msg.angle,
+      angle: msg.angle,        // use client’s aim
       owner: msg.player
     });
   }
-
 };
 
 /* ---------- PEER → RN BRIDGE ---------- */
@@ -188,15 +186,25 @@ function move(p) {
 function shoot() {
   if (!playerRole || mode !== "game") return;
 
+  // Always send shooting + position + angle to host
   sendToRN({
-    type: "shoot",
+    action: "shoot",
     player: playerRole,
     x: me.x,
     y: me.y,
     angle: me.angle
   });
-}
 
+  // If host, immediately add bullet locally
+  if (isHost) {
+    bullets.push({
+      x: me.x + BOX / 2,
+      y: me.y + BOX / 2,
+      angle: me.angle,
+      owner: playerRole
+    });
+  }
+}
 
 if (shootBtn) shootBtn.onclick = shoot;
 
