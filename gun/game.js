@@ -1,32 +1,38 @@
 /************************************************************
- * Multiplayer Gun – WebView Version (MANUAL AIM + SHOOT BTN)
- * Host-authoritative shooting integrated
+ * Multiplayer Gun – WebView Version (FINAL FIXED)
+ * Host-authoritative | Manual Aim | Shoot Button
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
 const BOX = 80;
 const BULLET_SIZE = 12;
 const SPEED = 9;
+const STATE_RATE = 100;
 
+/* ---------- VIEWPORT ---------- */
 let W = window.innerWidth;
 let H = window.innerHeight;
 
-/* ---------- STATE ---------- */
-let mode = "lobby"; // "lobby" | "game"
+/* ---------- GAME STATE ---------- */
+let mode = "lobby";          // "lobby" | "game"
 let bullets = [];
-let playerRole = null; // "A" | "B"
+let playerRole = null;       // "A" | "B"
 let isHost = false;
 
 /* ---------- PLAYER DATA ---------- */
 const me = {
-  x: 50, y: 50, dx: 3, dy: 3,
-  angle: 0, health: 100,
+  x: 50, y: 50,
+  dx: 0, dy: 0,
+  angle: 0,
+  health: 100,
   el: null, cannon: null, hp: null
 };
 
 const enemy = {
-  x: 250, y: 400, dx: 3, dy: 3,
-  angle: 0, health: 100,
+  x: 250, y: 400,
+  dx: 0, dy: 0,
+  angle: 0,
+  health: 100,
   el: null, cannon: null, hp: null
 };
 
@@ -47,7 +53,7 @@ function sendToRN(data) {
 window.onRNMessage = function (msg) {
   if (!msg) return;
   if (typeof msg === "string") {
-    try { msg = JSON.parse(msg); } catch { }
+    try { msg = JSON.parse(msg); } catch { return; }
   }
 
   console.log("📩 RN → WebView:", msg);
@@ -58,28 +64,21 @@ window.onRNMessage = function (msg) {
     createStartButton();
   }
 
-  if (msg.type === "start") {
-    startGame();
+  if (msg.type === "start") startGame();
+
+  /* ---------- CLIENT → HOST ---------- */
+  if (isHost && msg.action === "move") {
+    Object.assign(enemy, msg.state);
   }
 
-  if (msg.type === "state" && !isHost) {
+  if (isHost && msg.action === "shoot") {
+    spawnBullet(msg);
+  }
+
+  /* ---------- HOST → CLIENT ---------- */
+  if (!isHost && msg.action === "state") {
     applyRemoteState(msg.state);
   }
-
-  // Host handles shoot actions from client
-  if (msg.action === "shoot" && isHost) {
-    bullets.push({
-      x: msg.x + BOX / 2,      // use client’s position
-      y: msg.y + BOX / 2,
-      angle: msg.angle,        // use client’s aim
-      owner: msg.player
-    });
-  }
-};
-
-/* ---------- PEER → RN BRIDGE ---------- */
-window.onPeerMessage = function (msg) {
-  window.onRNMessage && window.onRNMessage(msg);
 };
 
 /* ---------- START BUTTON ---------- */
@@ -91,7 +90,7 @@ function createStartButton() {
     startBtn.style.display = "none";
     if (isHost) {
       startGame();
-      sendToRN({ action: "start" });
+      sendToRN({ type: "start" });
     } else {
       sendToRN({ action: "requestStart" });
     }
@@ -132,8 +131,8 @@ function startGame() {
   if (mode === "game") return;
 
   mode = "game";
-  lobby.style.display = "none";
-  statusEl.innerText = "Connected ✔";
+  lobby && (lobby.style.display = "none");
+  statusEl && (statusEl.innerText = "Connected ✔");
 
   createPlayer(false);
   createPlayer(true);
@@ -154,59 +153,69 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-/* ---------- SIMULATION (HOST ONLY) ---------- */
+/* ---------- HOST SIMULATION ---------- */
 function simulate() {
-  move(me);
-  move(enemy);
+  updatePosition(me);
+  updatePosition(enemy);
 
   bullets = bullets.filter(b => {
     b.x += Math.cos(b.angle) * SPEED;
     b.y += Math.sin(b.angle) * SPEED;
 
-    if (b.owner === "A" && hit(b, enemy)) { damage(enemy); return false; }
-    if (b.owner === "B" && hit(b, me)) { damage(me); return false; }
+    if (b.owner === "A" && hit(b, enemy)) { damage(enemy); removeBullet(b); return false; }
+    if (b.owner === "B" && hit(b, me)) { damage(me); removeBullet(b); return false; }
 
-    return (
-      b.x > -BULLET_SIZE &&
-      b.x < W + BULLET_SIZE &&
-      b.y > -BULLET_SIZE &&
-      b.y < H + BULLET_SIZE
-    );
+    if (b.x < -BULLET_SIZE || b.x > W || b.y < -BULLET_SIZE || b.y > H) {
+      removeBullet(b);
+      return false;
+    }
+    return true;
   });
 }
 
-function move(p) {
-  p.x += p.dx;
-  p.y += p.dy;
-  if (p.x < 0 || p.x > W - BOX) p.dx *= -1;
-  if (p.y < 0 || p.y > H - BOX) p.dy *= -1;
+function updatePosition(p) {
+  p.x = Math.max(0, Math.min(W - BOX, p.x));
+  p.y = Math.max(0, Math.min(H - BOX, p.y));
 }
 
-/* ---------- SHOOT BUTTON ---------- */
+/* ---------- SHOOT ---------- */
 function shoot() {
-  if (!playerRole || mode !== "game") return;
+  if (mode !== "game") return;
 
-  // Always send shooting + position + angle to host
-  sendToRN({
-    action: "shoot",
-    player: playerRole,
-    x: me.x,
-    y: me.y,
-    angle: me.angle
-  });
-
-  // If host, immediately add bullet locally
   if (isHost) {
-    bullets.push({
-      x: me.x + BOX / 2,
-      y: me.y + BOX / 2,
-      angle: me.angle,
-      owner: playerRole
+    spawnBullet({
+      player: playerRole,
+      x: me.x,
+      y: me.y,
+      angle: me.angle
+    });
+  } else {
+    sendToRN({
+      action: "shoot",
+      player: playerRole,
+      x: me.x,
+      y: me.y,
+      angle: me.angle
     });
   }
 }
 
-if (shootBtn) shootBtn.onclick = shoot;
+shootBtn && (shootBtn.onclick = shoot);
+
+/* ---------- BULLET ---------- */
+function spawnBullet(data) {
+  bullets.push({
+    x: data.x + BOX / 2,
+    y: data.y + BOX / 2,
+    angle: data.angle,
+    owner: data.player,
+    el: null
+  });
+}
+
+function removeBullet(b) {
+  b.el && b.el.remove();
+}
 
 /* ---------- RENDER ---------- */
 function render() {
@@ -235,17 +244,17 @@ function drawBullet(b) {
 
 /* ---------- COLLISION ---------- */
 function hit(b, p) {
-  return b.x > p.x && b.x < p.x + BOX &&
-    b.y > p.y && b.y < p.y + BOX;
+  return b.x > p.x && b.x < p.x + BOX && b.y > p.y && b.y < p.y + BOX;
 }
 
 function damage(p) {
   p.health = Math.max(0, p.health - 10);
-  p.hp.style.width = p.health * 0.8 + "px";
+  p.hp && (p.hp.style.width = p.health * 0.8 + "px");
   flash(p.el);
 }
 
 function flash(el) {
+  if (!el) return;
   const body = el.querySelector(".body");
   body.classList.add("flash");
   setTimeout(() => body.classList.remove("flash"), 120);
@@ -255,7 +264,7 @@ function flash(el) {
 let lastSent = 0;
 function sendState() {
   const now = Date.now();
-  if (now - lastSent < 100) return;
+  if (now - lastSent < STATE_RATE) return;
   lastSent = now;
 
   sendToRN({
@@ -270,8 +279,14 @@ function sendState() {
 
 function applyRemoteState(state) {
   if (!state) return;
-  Object.assign(me, state.enemy);
-  Object.assign(enemy, state.me);
+
+  if (playerRole === "A") {
+    Object.assign(me, state.me);
+    Object.assign(enemy, state.enemy);
+  } else {
+    Object.assign(me, state.enemy);
+    Object.assign(enemy, state.me);
+  }
 
   bullets.forEach(b => b.el?.remove());
   bullets = state.bullets || [];
@@ -286,10 +301,9 @@ function strip(o) {
 
 /* ---------- AIM JOYSTICK ---------- */
 let aiming = false;
-let centerX = 0;
-let centerY = 0;
+let centerX = 0, centerY = 0;
 
-aimZone.addEventListener("pointerdown", e => {
+aimZone && aimZone.addEventListener("pointerdown", e => {
   aiming = true;
   const r = aimZone.getBoundingClientRect();
   centerX = r.left + r.width / 2;
@@ -309,13 +323,18 @@ window.addEventListener("pointermove", e => {
     dy = dy / dist * max;
   }
 
-  stick.style.transform = `translate(${dx}px, ${dy}px)`;
+  stick && (stick.style.transform = `translate(${dx}px, ${dy}px)`);
   me.angle = Math.atan2(dy, dx);
+
+  sendToRN({
+    action: "move",
+    state: { x: me.x, y: me.y, angle: me.angle }
+  });
 });
 
 window.addEventListener("pointerup", () => {
   aiming = false;
-  stick.style.transform = "translate(0,0)";
+  stick && (stick.style.transform = "translate(0,0)");
 });
 
 /* ---------- RESIZE ---------- */
