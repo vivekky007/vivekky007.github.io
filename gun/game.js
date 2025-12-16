@@ -81,6 +81,24 @@ window.onRNMessage = function (msg) {
   }
 };
 
+function createStartButton() {
+  if (!startBtn) return;
+
+  startBtn.style.display = "block";
+
+  startBtn.onclick = () => {
+    startBtn.style.display = "none";
+
+    if (isHost) {
+      startGame();
+      sendToRN({ type: "start" });
+    } else {
+      sendToRN({ action: "requestStart" });
+    }
+  };
+}
+
+
 /* ---------- START GAME ---------- */
 function startGame() {
   if (mode === "game") return;
