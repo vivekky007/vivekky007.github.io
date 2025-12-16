@@ -67,14 +67,11 @@ window.onRNMessage = function (msg) {
   }
 
   // Host handles shoot actions from client
-  if (msg.action === "shoot" && isHost) {
-    bullets.push({
-      x: msg.x + BOX / 2,      // use client’s position
-      y: msg.y + BOX / 2,
-      angle: msg.angle,        // use client’s aim
-      owner: msg.player
-    });
+  if (isHost && msg.action === "aim") {
+    if (msg.player === "A") aimA = msg.angle;
+    if (msg.player === "B") aimB = msg.angle;
   }
+
 };
 
 /* ---------- PEER → RN BRIDGE ---------- */
@@ -263,26 +260,52 @@ function sendState() {
     state: {
       me: strip(me),
       enemy: strip(enemy),
-      bullets: bullets.map(strip)
+      bullets: bullets.map(strip),
+      aim: {
+        A: aimA,
+        B: aimB
+      }
     }
   });
+
 }
 
 function applyRemoteState(state) {
   if (!state) return;
-  Object.assign(me, state.enemy);
-  Object.assign(enemy, state.me);
 
-  bullets.forEach(b => b.el?.remove());
-  bullets = state.bullets || [];
+  if (playerRole === "A") {
+    Object.assign(me, state.me);
+    Object.assign(enemy, state.enemy);
+    enemy.angle = state.aim.B;
+  } else {
+    Object.assign(me, state.enemy);
+    Object.assign(enemy, state.me);
+    enemy.angle = state.aim.A;
+  }
 }
 
-/* ---------- HELPERS ---------- */
+function spawnBullet(player) {
+  const angle = player === "A" ? aimA : aimB;
+  const p = player === "A" ? me : enemy;
+
+  bullets.push({
+    x: p.x + BOX / 2,
+    y: p.y + BOX / 2,
+    angle,
+    owner: player
+  });
+}
+
+
 function strip(o) {
-  const c = { ...o };
-  delete c.el; delete c.cannon; delete c.hp;
-  return c;
+  return {
+    x: o.x,
+    y: o.y,
+    health: o.health
+ 
+  };
 }
+
 
 /* ---------- AIM JOYSTICK ---------- */
 let aiming = false;
@@ -311,6 +334,11 @@ window.addEventListener("pointermove", e => {
 
   stick.style.transform = `translate(${dx}px, ${dy}px)`;
   me.angle = Math.atan2(dy, dx);
+  sendToRN({
+    action: "aim",
+    player: playerRole,
+    angle: me.angle
+  });
 });
 
 window.addEventListener("pointerup", () => {
