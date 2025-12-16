@@ -1,5 +1,6 @@
 /************************************************************
  * Multiplayer Gun – WebView Version (MANUAL AIM + SHOOT BTN)
+ * Host-authoritative shooting integrated
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -34,6 +35,8 @@ const lobby = document.getElementById("lobby");
 const statusEl = document.getElementById("status");
 const startBtn = document.getElementById("startBtn");
 const shootBtn = document.getElementById("shootBtn");
+const aimZone = document.getElementById("aimZone");
+const stick = document.getElementById("stick");
 
 /* ---------- RN ↔ WEBVIEW ---------- */
 function sendToRN(data) {
@@ -63,6 +66,7 @@ window.onRNMessage = function (msg) {
     applyRemoteState(msg.state);
   }
 
+  // Host handles shoot actions from client
   if (msg.action === "shoot" && isHost) {
     const src = msg.player === "A" ? me : enemy;
     bullets.push({
@@ -172,10 +176,18 @@ function simulate() {
   });
 }
 
+function move(p) {
+  p.x += p.dx;
+  p.y += p.dy;
+  if (p.x < 0 || p.x > W - BOX) p.dx *= -1;
+  if (p.y < 0 || p.y > H - BOX) p.dy *= -1;
+}
+
+/* ---------- SHOOT BUTTON ---------- */
 function shoot() {
   if (!playerRole || mode !== "game") return;
 
-  // Host adds bullet immediately
+  // Host immediately adds bullet locally
   if (isHost) {
     bullets.push({
       x: me.x + BOX / 2,
@@ -185,19 +197,11 @@ function shoot() {
     });
   }
 
-  // Send shoot event to RN → host
+  // Send shoot event to RN for host to handle
   sendToRN({ action: "shoot", player: playerRole });
 }
 
 if (shootBtn) shootBtn.onclick = shoot;
-
-
-function move(p) {
-  p.x += p.dx;
-  p.y += p.dy;
-  if (p.x < 0 || p.x > W - BOX) p.dx *= -1;
-  if (p.y < 0 || p.y > H - BOX) p.dy *= -1;
-}
 
 /* ---------- RENDER ---------- */
 function render() {
@@ -213,7 +217,6 @@ function drawPlayer(p) {
   p.cannon.style.transform = `rotate(${p.angle}rad)`;
 }
 
-/* ---------- BULLETS ---------- */
 function drawBullet(b) {
   if (!b.el) {
     b.el = document.createElement("div");
@@ -242,14 +245,6 @@ function flash(el) {
   body.classList.add("flash");
   setTimeout(() => body.classList.remove("flash"), 120);
 }
-
-/* ---------- SHOOT BUTTON ---------- */
-function shoot() {
-  if (!playerRole) return;
-  sendToRN({ action: "shoot", player: playerRole });
-}
-
-if (shootBtn) shootBtn.onclick = shoot;
 
 /* ---------- STATE SYNC ---------- */
 let lastSent = 0;
@@ -285,9 +280,6 @@ function strip(o) {
 }
 
 /* ---------- AIM JOYSTICK ---------- */
-const aimZone = document.getElementById("aimZone");
-const stick = document.getElementById("stick");
-
 let aiming = false;
 let centerX = 0;
 let centerY = 0;
