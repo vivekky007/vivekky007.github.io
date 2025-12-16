@@ -331,4 +331,4 @@ window.addEventListener("resize", () => {
   W = window.innerWidth;
   H = window.innerHeight;
 });
-still host cant see the client moving for aim
+
