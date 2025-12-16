@@ -1,8 +1,8 @@
 * {
   box-sizing: border-box;
-  font-family: system-ui, Arial, sans-serif;
   margin: 0;
   padding: 0;
+  font-family: system-ui, Arial, sans-serif;
 }
 
 body {
@@ -13,15 +13,15 @@ body {
 
 /* Lobby */
 #lobby {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  background: rgba(0,0,0,0.85);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 1000;
+  gap: 12px;
+  z-index: 5000;
 }
 
 #lobby input {
@@ -32,33 +32,26 @@ body {
 }
 
 #lobby button {
-  padding: 12px 20px;
+  padding: 12px 22px;
   border-radius: 10px;
   border: none;
   background: #444;
   color: white;
   font-size: 18px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-#lobby button:hover {
-  background: #666;
 }
 
 #startBtn {
-  display: none; /* Initially hidden, JS will show */
-  margin-top: 15px;
+  display: none;
 }
 
 /* Status */
 #status {
-  position: absolute;
-  top: 20px;
+  position: fixed;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 20px;
-  z-index: 2000;
+  z-index: 3000;
+  font-size: 18px;
 }
 
 /* Players */
@@ -66,7 +59,7 @@ body {
   position: absolute;
   width: 80px;
   height: 80px;
-  pointer-events: none; /* Clicks go through player div */
+  pointer-events: none;
 }
 
 .body {
@@ -74,8 +67,6 @@ body {
   height: 100%;
   border-radius: 50%;
   background: crimson;
-  position: relative;
-  transition: background 0.1s;
 }
 
 .flash {
@@ -89,26 +80,22 @@ body {
   background: black;
   top: 36px;
   left: 40px;
-  border-radius: 4px;
   transform-origin: left center;
+  border-radius: 4px;
 }
 
-/* Health bars */
+/* Health */
 .health-container {
   position: absolute;
   width: 80px;
   height: 6px;
-  background: #333;
-  border-radius: 3px;
   top: -10px;
+  background: #333;
 }
 
 .health {
   height: 100%;
-  width: 80px; /* Initial full health */
   background: lime;
-  border-radius: 3px;
-  transition: width 0.1s;
 }
 
 /* Bullets */
@@ -117,16 +104,18 @@ body {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  pointer-events: none; /* Allow clicks through bullets */
-}
-
-#controls {
-  position: fixed;
-  inset: 0;
   pointer-events: none;
 }
 
-/* AIM JOYSTICK */
+/* Controls */
+#controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+  z-index: 4000;
+}
+
+/* Aim joystick */
 #aimZone {
   position: absolute;
   left: 20px;
@@ -134,7 +123,7 @@ body {
   width: 140px;
   height: 140px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.1);
   pointer-events: auto;
   touch-action: none;
 }
@@ -143,13 +132,13 @@ body {
   position: absolute;
   width: 60px;
   height: 60px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.35);
   left: 40px;
   top: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.35);
 }
 
-/* SHOOT BUTTON */
+/* Shoot button */
 #shootBtn {
   position: absolute;
   right: 30px;
@@ -162,5 +151,5 @@ body {
   color: white;
   border: none;
   pointer-events: auto;
+  z-index: 6000;
 }
-
