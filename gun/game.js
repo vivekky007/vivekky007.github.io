@@ -260,8 +260,11 @@ function sendState() {
 }
 
 function applyRemoteState(state) {
-  bullets.forEach(b => b.el?.remove());
-  bullets = state.bullets || [];
+  // sync bullets WITHOUT nuking DOM every frame
+  bullets = state.bullets.map((b, i) => ({
+    ...b,
+    el: bullets[i]?.el || null
+  }));
 
   if (playerRole === "A") {
     Object.assign(me, state.me);
@@ -271,6 +274,7 @@ function applyRemoteState(state) {
     Object.assign(enemy, state.me);
   }
 }
+
 
 function strip(o) {
   return { x: o.x, y: o.y, angle: o.angle, health: o.health };
