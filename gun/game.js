@@ -281,15 +281,22 @@ function applyRemoteState(state) {
   if (!state) return;
 
   if (playerRole === "A") {
-    Object.assign(me, state.me);
-    Object.assign(enemy, state.enemy);
+    me.x = state.me.x;
+    me.y = state.me.y;
+
+    enemy.x = state.enemy.x;
+    enemy.y = state.enemy.y;
     enemy.angle = state.aim.B;
   } else {
-    Object.assign(me, state.enemy);
-    Object.assign(enemy, state.me);
+    me.x = state.enemy.x;
+    me.y = state.enemy.y;
+
+    enemy.x = state.me.x;
+    enemy.y = state.me.y;
     enemy.angle = state.aim.A;
   }
 }
+
 
 function spawnBullet(player) {
   const angle = player === "A" ? aimA : aimB;
@@ -308,6 +315,7 @@ function strip(o) {
   return {
     x: o.x,
     y: o.y,
+    angle: o.angle,
     health: o.health
  
   };
