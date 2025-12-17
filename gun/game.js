@@ -54,23 +54,23 @@ window.onRNMessage = function (msg) {
     try { msg = JSON.parse(msg); } catch { return; }
   }
 
-  if (msg.type === "assign") {
+  if (msg.action === "assign") {
     playerRole = msg.player;
     isHost = playerRole === "A";
     createStartButton();
   }
 
-  if (msg.type === "start") {
+  if (msg.action === "start") {
     startGame();
   }
 
   // CLIENT receives authoritative state
-  if (!isHost && msg.type === "state") {
+  if (!isHost && msg.action === "state") {
     applyRemoteState(msg.state);
   }
 
   // HOST receives AIM
-  if (isHost && msg.type === "aim") {
+  if (isHost && msg.action === "aim") {
     if (msg.player === "A") {
       aimA = msg.angle;
       me.angle = msg.angle;
@@ -81,7 +81,7 @@ window.onRNMessage = function (msg) {
   }
 
   // HOST receives SHOOT
-  if (isHost && msg.type === "shoot") {
+  if (isHost && msg.action === "shoot") {
     spawnBullet(msg.player);
   }
 };
@@ -194,6 +194,10 @@ function spawnBullet(player) {
 
 if (shootBtn) shootBtn.onclick = () => {
   if (mode !== "game") return;
+  if (isHost) {
+    spawnBullet(playerRole);
+  }
+
   sendToRN({ action: "shoot", player: playerRole });
 };
 
@@ -243,12 +247,19 @@ function sendState() {
     state: {
       me: strip(me),
       enemy: strip(enemy),
-      bullets
+      bullets: bullets.map(b => ({
+        x: b.x,
+        y: b.y,
+        angle: b.angle,
+        owner: b.owner
+      }))
+
     }
   });
 }
 
 function applyRemoteState(state) {
+  bullets.forEach(b => b.el?.remove());
   bullets = state.bullets || [];
 
   if (playerRole === "A") {
