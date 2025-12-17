@@ -61,7 +61,7 @@ window.onRNMessage = function (msg) {
   }
 
 
-  if (msg.action === "start"||mag.type==="start") {
+  if (msg.action === "start"||msg.type==="start") {
     startGame();
   }
 
