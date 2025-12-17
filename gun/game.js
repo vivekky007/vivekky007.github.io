@@ -71,7 +71,7 @@ window.onRNMessage = function (msg) {
   }
 
   // HOST receives AIM
-  if (isHost && (msg.action === "aim"||msg.type === "aim")) {
+  if (isHost && msg.action === "aim"||isHost && msg.type === "aim") {
     if (msg.player === "A") {
       aimA = msg.angle;
       me.angle = msg.angle;
@@ -82,7 +82,7 @@ window.onRNMessage = function (msg) {
   }
 
   // HOST receives SHOOT
-  if (isHost && (msg.action === "shoot"||msg.type === "shoot")) {
+  if (isHost && msg.action === "shoot"||isHost && msg.type === "shoot") {
     spawnBullet(msg.player);
   }
 };
@@ -181,24 +181,17 @@ function move(p) {
 }
 
 /* ---------- SHOOT ---------- */
-let bulletId = 0;
-
 function spawnBullet(player) {
-  if (!isHost) return; // host authoritative
-
   const angle = player === "A" ? aimA : aimB;
   const p = player === "A" ? me : enemy;
 
   bullets.push({
-    id: ++bulletId,
     x: p.x + BOX / 2,
     y: p.y + BOX / 2,
     angle,
     owner: player
   });
 }
-
-
 
 if (shootBtn) shootBtn.onclick = () => {
   if (mode !== "game") return;
@@ -256,35 +249,19 @@ function sendState() {
       me: strip(me),
       enemy: strip(enemy),
       bullets: bullets.map(b => ({
-        id: b.id,
         x: b.x,
         y: b.y,
         angle: b.angle,
         owner: b.owner
       }))
 
-
     }
   });
 }
 
 function applyRemoteState(state) {
-  const old = bullets;
-  bullets = state.bullets.map(nb => {
-    const existing = old.find(ob => ob.id === nb.id);
-    return {
-      ...nb,
-      el: existing?.el || null
-    };
-  });
-
-  // remove DOM for bullets that no longer exist
-  old.forEach(ob => {
-    if (!bullets.find(nb => nb.id === ob.id)) {
-      ob.el?.remove();
-    }
-  });
-
+  bullets.forEach(b => b.el?.remove());
+  bullets = state.bullets || [];
 
   if (playerRole === "A") {
     Object.assign(me, state.me);
@@ -294,7 +271,6 @@ function applyRemoteState(state) {
     Object.assign(enemy, state.me);
   }
 }
-
 
 function strip(o) {
   return { x: o.x, y: o.y, angle: o.angle, health: o.health };
