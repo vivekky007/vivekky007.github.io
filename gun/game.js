@@ -54,11 +54,12 @@ window.onRNMessage = function (msg) {
     try { msg = JSON.parse(msg); } catch { return; }
   }
 
-  if (msg.action === "assign") {
+  if (msg.action === "assign" || msg.type === "assign") {
     playerRole = msg.player;
     isHost = playerRole === "A";
     createStartButton();
   }
+
 
   if (msg.action === "start") {
     startGame();
