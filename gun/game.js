@@ -66,7 +66,7 @@ window.onRNMessage = function (msg) {
   }
 
   // CLIENT receives authoritative state
-  if (!isHost && msg.action === "state") {
+  if (!isHost && (msg.action === "state"||msg.type==="state")) {
     applyRemoteState(msg.state);
   }
 
