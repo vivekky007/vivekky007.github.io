@@ -65,10 +65,6 @@ window.onRNMessage = function (msg) {
   }
 
   // HOST receives start request from client
-  if (isHost && msg.action === "requestStart") {
-    sendToRN({ action: "start" }); // broadcast to both players
-    startGame();                   // start on host
-  }
 
 
   // CLIENT receives authoritative state
