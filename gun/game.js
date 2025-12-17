@@ -1,6 +1,6 @@
 /************************************************************
- * Multiplayer Gun – WebView Version (MANUAL AIM + SHOOT BTN)
- * Host-authoritative shooting integrated
+ * Multiplayer Gun – WebView Version
+ * FINAL – Host Authoritative (Movement + Aim + Shoot)
  ************************************************************/
 
 /* ---------- CONSTANTS ---------- */
@@ -8,11 +8,15 @@ const BOX = 80;
 const BULLET_SIZE = 12;
 const SPEED = 9;
 
+/* ---------- AIM STORAGE ---------- */
+let aimA = 0;
+let aimB = 0;
+
 let W = window.innerWidth;
 let H = window.innerHeight;
 
 /* ---------- STATE ---------- */
-let mode = "lobby"; // "lobby" | "game"
+let mode = "lobby";
 let bullets = [];
 let playerRole = null; // "A" | "B"
 let isHost = false;
@@ -47,10 +51,8 @@ function sendToRN(data) {
 window.onRNMessage = function (msg) {
   if (!msg) return;
   if (typeof msg === "string") {
-    try { msg = JSON.parse(msg); } catch { }
+    try { msg = JSON.parse(msg); } catch { return; }
   }
-
-  console.log("📩 RN → WebView:", msg);
 
   if (msg.type === "assign") {
     playerRole = msg.player;
@@ -62,43 +64,39 @@ window.onRNMessage = function (msg) {
     startGame();
   }
 
-  if (msg.type === "state" && !isHost) {
+  // CLIENT receives authoritative state
+  if (!isHost && msg.type === "state") {
     applyRemoteState(msg.state);
   }
 
-  // Host handles shoot actions from client
+  // HOST receives AIM
   if (isHost && msg.type === "aim") {
     if (msg.player === "A") {
       aimA = msg.angle;
-      me.angle = msg.angle;        // 🔥 APPLY AIM
-    }
-    if (msg.player === "B") {
+      me.angle = msg.angle;
+    } else {
       aimB = msg.angle;
-      enemy.angle = msg.angle;    // 🔥 APPLY AIM
+      enemy.angle = msg.angle;
     }
   }
 
-
+  // HOST receives SHOOT
+  if (isHost && msg.type === "shoot") {
+    spawnBullet(msg.player);
+  }
 };
 
-/* ---------- PEER → RN BRIDGE ---------- */
-window.onPeerMessage = function (msg) {
-  window.onRNMessage && window.onRNMessage(msg);
-};
+/* ---------- PEER → RN ---------- */
+window.onPeerMessage = msg => window.onRNMessage(msg);
 
 /* ---------- START BUTTON ---------- */
 function createStartButton() {
   if (!startBtn) return;
   startBtn.style.display = "block";
-
   startBtn.onclick = () => {
     startBtn.style.display = "none";
-    if (isHost) {
-      startGame();
-      sendToRN({ action: "start" });
-    } else {
-      sendToRN({ action: "requestStart" });
-    }
+    sendToRN({ action: isHost ? "start" : "requestStart" });
+    if (isHost) startGame();
   };
 }
 
@@ -134,14 +132,11 @@ function createPlayer(isEnemy) {
 /* ---------- START GAME ---------- */
 function startGame() {
   if (mode === "game") return;
-
   mode = "game";
   lobby.style.display = "none";
   statusEl.innerText = "Connected ✔";
-
   createPlayer(false);
   createPlayer(true);
-
   requestAnimationFrame(loop);
 }
 
@@ -171,10 +166,8 @@ function simulate() {
     if (b.owner === "B" && hit(b, me)) { damage(me); return false; }
 
     return (
-      b.x > -BULLET_SIZE &&
-      b.x < W + BULLET_SIZE &&
-      b.y > -BULLET_SIZE &&
-      b.y < H + BULLET_SIZE
+      b.x > -BULLET_SIZE && b.x < W + BULLET_SIZE &&
+      b.y > -BULLET_SIZE && b.y < H + BULLET_SIZE
     );
   });
 }
@@ -186,31 +179,23 @@ function move(p) {
   if (p.y < 0 || p.y > H - BOX) p.dy *= -1;
 }
 
-/* ---------- SHOOT BUTTON ---------- */
-function shoot() {
-  if (!playerRole || mode !== "game") return;
+/* ---------- SHOOT ---------- */
+function spawnBullet(player) {
+  const angle = player === "A" ? aimA : aimB;
+  const p = player === "A" ? me : enemy;
 
-  // Always send shooting + position + angle to host
-  sendToRN({
-    action: "shoot",
-    player: playerRole,
-    x: me.x,
-    y: me.y,
-    angle: me.angle
+  bullets.push({
+    x: p.x + BOX / 2,
+    y: p.y + BOX / 2,
+    angle,
+    owner: player
   });
-
-  // If host, immediately add bullet locally
-  if (isHost) {
-    bullets.push({
-      x: me.x + BOX / 2,
-      y: me.y + BOX / 2,
-      angle: me.angle,
-      owner: playerRole
-    });
-  }
 }
 
-if (shootBtn) shootBtn.onclick = shoot;
+if (shootBtn) shootBtn.onclick = () => {
+  if (mode !== "game") return;
+  sendToRN({ action: "shoot", player: playerRole });
+};
 
 /* ---------- RENDER ---------- */
 function render() {
@@ -230,7 +215,6 @@ function drawBullet(b) {
   if (!b.el) {
     b.el = document.createElement("div");
     b.el.className = "bullet";
-    b.el.style.background = b.owner === "A" ? "cyan" : "yellow";
     document.body.appendChild(b.el);
   }
   b.el.style.left = b.x + "px";
@@ -240,92 +224,48 @@ function drawBullet(b) {
 /* ---------- COLLISION ---------- */
 function hit(b, p) {
   return b.x > p.x && b.x < p.x + BOX &&
-    b.y > p.y && b.y < p.y + BOX;
+         b.y > p.y && b.y < p.y + BOX;
 }
 
 function damage(p) {
   p.health = Math.max(0, p.health - 10);
   p.hp.style.width = p.health * 0.8 + "px";
-  flash(p.el);
-}
-
-function flash(el) {
-  const body = el.querySelector(".body");
-  body.classList.add("flash");
-  setTimeout(() => body.classList.remove("flash"), 120);
 }
 
 /* ---------- STATE SYNC ---------- */
 let lastSent = 0;
 function sendState() {
-  const now = Date.now();
-  if (now - lastSent < 100) return;
-  lastSent = now;
+  if (Date.now() - lastSent < 100) return;
+  lastSent = Date.now();
 
   sendToRN({
     action: "state",
     state: {
       me: strip(me),
       enemy: strip(enemy),
-      bullets: bullets.map(strip),
-      aim: {
-        A: aimA,
-        B: aimB
-      }
+      bullets
     }
   });
-
 }
 
 function applyRemoteState(state) {
-  if (!state) return;
+  bullets = state.bullets || [];
 
   if (playerRole === "A") {
-    me.x = state.me.x;
-    me.y = state.me.y;
-
-    enemy.x = state.enemy.x;
-    enemy.y = state.enemy.y;
-    enemy.angle = state.aim.B;
+    Object.assign(me, state.me);
+    Object.assign(enemy, state.enemy);
   } else {
-    me.x = state.enemy.x;
-    me.y = state.enemy.y;
-
-    enemy.x = state.me.x;
-    enemy.y = state.me.y;
-    enemy.angle = state.aim.A;
+    Object.assign(me, state.enemy);
+    Object.assign(enemy, state.me);
   }
 }
 
-
-function spawnBullet(player) {
-  const angle = player === "A" ? aimA : aimB;
-  const p = player === "A" ? me : enemy;
-
-  bullets.push({
-    x: p.x + BOX / 2,
-    y: p.y + BOX / 2,
-    angle,
-    owner: player
-  });
-}
-
-
 function strip(o) {
-  return {
-    x: o.x,
-    y: o.y,
-    angle: o.angle,
-    health: o.health
- 
-  };
+  return { x: o.x, y: o.y, angle: o.angle, health: o.health };
 }
-
 
 /* ---------- AIM JOYSTICK ---------- */
-let aiming = false;
-let centerX = 0;
-let centerY = 0;
+let aiming = false, centerX = 0, centerY = 0;
 
 aimZone.addEventListener("pointerdown", e => {
   aiming = true;
@@ -339,29 +279,10 @@ window.addEventListener("pointermove", e => {
 
   let dx = e.clientX - centerX;
   let dy = e.clientY - centerY;
-
-  const dist = Math.hypot(dx, dy);
-  const max = 40;
-  if (dist > max) {
-    dx = dx / dist * max;
-    dy = dy / dist * max;
-  }
-
-  stick.style.transform = `translate(${dx}px, ${dy}px)`;
   const angle = Math.atan2(dy, dx);
 
-  if (isHost) {
-    me.angle = angle;
-  } else {
-    // client NEVER applies locally
-  }
-
-  sendToRN({
-    action: "aim",
-    player: playerRole,
-    angle
-  });
-
+  me.angle = angle; // visual prediction
+  sendToRN({ action: "aim", player: playerRole, angle });
 });
 
 window.addEventListener("pointerup", () => {
