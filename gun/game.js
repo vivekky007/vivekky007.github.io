@@ -54,26 +54,23 @@ window.onRNMessage = function (msg) {
     try { msg = JSON.parse(msg); } catch { return; }
   }
 
-  if (msg.action === "assign"|| msg.type === "assign") {
+  if (msg.type === "assign") {
     playerRole = msg.player;
     isHost = playerRole === "A";
     createStartButton();
   }
 
-  if (msg.action === "start") {
+  if (msg.type === "start") {
     startGame();
   }
 
-  // HOST receives start request from client
-
-
   // CLIENT receives authoritative state
-  if (!isHost && msg.action === "state") {
+  if (!isHost && msg.type === "state") {
     applyRemoteState(msg.state);
   }
 
   // HOST receives AIM
-  if (isHost && msg.action === "aim") {
+  if (isHost && msg.type === "aim") {
     if (msg.player === "A") {
       aimA = msg.angle;
       me.angle = msg.angle;
@@ -84,7 +81,7 @@ window.onRNMessage = function (msg) {
   }
 
   // HOST receives SHOOT
-  if (isHost && msg.action === "shoot") {
+  if (isHost && msg.type === "shoot") {
     spawnBullet(msg.player);
   }
 };
