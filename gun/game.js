@@ -7,9 +7,6 @@
 const BOX = 80;
 const BULLET_SIZE = 12;
 const SPEED = 9;
-/* ---------- AIM STORAGE ---------- */
-let aimA = 0;
-let aimB = 0;
 
 let W = window.innerWidth;
 let H = window.innerHeight;
@@ -70,10 +67,17 @@ window.onRNMessage = function (msg) {
   }
 
   // Host handles shoot actions from client
-  if (isHost && msg.action === "aim") {
-    if (msg.player === "A") aimA = msg.angle;
-    if (msg.player === "B") aimB = msg.angle;
+  if (isHost && msg.type === "aim") {
+    if (msg.player === "A") {
+      aimA = msg.angle;
+      me.angle = msg.angle;        // 🔥 APPLY AIM
+    }
+    if (msg.player === "B") {
+      aimB = msg.angle;
+      enemy.angle = msg.angle;    // 🔥 APPLY AIM
+    }
   }
+
 
 };
 
@@ -336,12 +340,20 @@ window.addEventListener("pointermove", e => {
   }
 
   stick.style.transform = `translate(${dx}px, ${dy}px)`;
-  me.angle = Math.atan2(dy, dx);
+  const angle = Math.atan2(dy, dx);
+
+  if (isHost) {
+    me.angle = angle;
+  } else {
+    // client NEVER applies locally
+  }
+
   sendToRN({
     action: "aim",
     player: playerRole,
-    angle: me.angle
+    angle
   });
+
 });
 
 window.addEventListener("pointerup", () => {
