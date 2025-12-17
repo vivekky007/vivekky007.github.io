@@ -278,30 +278,40 @@ function strip(o) {
 
 /* ---------- AIM JOYSTICK ---------- */
 let aiming = false, centerX = 0, centerY = 0;
+let aimPointerId = null;
+aimZone.style.touchAction = "none"; // VERY IMPORTANT
 
 aimZone.addEventListener("pointerdown", e => {
+  if (aiming) return;
+
   aiming = true;
+  aimPointerId = e.pointerId;
+  aimZone.setPointerCapture(e.pointerId);
+
   const r = aimZone.getBoundingClientRect();
   centerX = r.left + r.width / 2;
   centerY = r.top + r.height / 2;
 });
 
-window.addEventListener("pointermove", e => {
-  if (!aiming || mode !== "game") return;
+aimZone.addEventListener("pointermove", e => {
+  if (!aiming || e.pointerId !== aimPointerId || mode !== "game") return;
 
-  let dx = e.clientX - centerX;
-  let dy = e.clientY - centerY;
+  const dx = e.clientX - centerX;
+  const dy = e.clientY - centerY;
   const angle = Math.atan2(dy, dx);
 
-  me.angle = angle; // visual prediction
+  me.angle = angle; // local prediction
   sendToRN({ action: "aim", player: playerRole, angle });
 });
 
-window.addEventListener("pointerup", () => {
+aimZone.addEventListener("pointerup", e => {
+  if (e.pointerId !== aimPointerId) return;
+
   aiming = false;
+  aimPointerId = null;
+  aimZone.releasePointerCapture(e.pointerId);
   stick.style.transform = "translate(0,0)";
 });
-
 /* ---------- RESIZE ---------- */
 window.addEventListener("resize", () => {
   W = window.innerWidth;
