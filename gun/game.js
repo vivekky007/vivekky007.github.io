@@ -83,7 +83,7 @@ window.onRNMessage = function (msg) {
 
   // HOST receives SHOOT
   if (isHost && (msg.action === "shoot"||msg.type === "shoot")) {
-    spawnBullet(msg.player);
+    spawnBullet(msg.player,msg.angle);
   }
 };
 
@@ -181,8 +181,8 @@ function move(p) {
 }
 
 /* ---------- SHOOT ---------- */
-function spawnBullet(player) {
-  const angle = player === "A" ? aimA : aimB;
+function spawnBullet(player,angleOverride) {
+  const angle = angleOverride ?? (player === "A" ? aimA : aimB);
   const p = player === "A" ? me : enemy;
 
   bullets.push({
@@ -196,10 +196,10 @@ function spawnBullet(player) {
 if (shootBtn) shootBtn.onclick = () => {
   if (mode !== "game") return;
   if (isHost) {
-    spawnBullet(playerRole);
+    spawnBullet(playerRole,me.angle);
   }
 
-  sendToRN({ action: "shoot", player: playerRole });
+  sendToRN({ action: "shoot", player: playerRole,angle: me.angle });
 };
 
 /* ---------- RENDER ---------- */
