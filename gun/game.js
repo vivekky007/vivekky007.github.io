@@ -163,8 +163,8 @@ function simulate() {
     b.x += Math.cos(b.angle) * SPEED;
     b.y += Math.sin(b.angle) * SPEED;
 
-    if (b.owner === "A" && hit(b, enemy)) { damage(enemy); return false; }
-    if (b.owner === "B" && hit(b, me)) { damage(me); return false; }
+    if (b.owner === "A" && hit(b, enemy)) { damage(enemy); b.el?.remove(); return false; }
+    if (b.owner === "B" && hit(b, me)) { damage(me); b.el?.remove(); return false; }
 
     return (
       b.x > -BULLET_SIZE && b.x < W + BULLET_SIZE &&
