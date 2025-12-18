@@ -71,7 +71,7 @@ window.onRNMessage = function (msg) {
   }
 
   // HOST receives AIM
-  if (isHost && msg.action === "aim"||isHost && msg.type === "aim") {
+  if (isHost && (msg.action === "aim"|| msg.type === "aim")) {
     if (msg.player === "A") {
       aimA = msg.angle;
       me.angle = msg.angle;
@@ -82,7 +82,7 @@ window.onRNMessage = function (msg) {
   }
 
   // HOST receives SHOOT
-  if (isHost && msg.action === "shoot"||isHost && msg.type === "shoot") {
+  if (isHost && (msg.action === "shoot"||msg.type === "shoot")) {
     spawnBullet(msg.player);
   }
 };
