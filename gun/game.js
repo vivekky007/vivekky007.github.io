@@ -214,6 +214,7 @@ function drawPlayer(p) {
   p.el.style.left = p.x + "px";
   p.el.style.top = p.y + "px";
   p.cannon.style.transform = `rotate(${p.angle}rad)`;
+  p.hp.style.width = p.health * 0.8 + "px";
 }
 
 function drawBullet(b) {
