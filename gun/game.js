@@ -214,7 +214,9 @@ function drawPlayer(p) {
   p.el.style.left = p.x + "px";
   p.el.style.top = p.y + "px";
   p.cannon.style.transform = `rotate(${p.angle}rad)`;
-  p.hp.style.width = p.health * 0.8 + "px";
+    if (p.hp) {
+    p.hp.style.width = p.health * 0.8 + "px";
+  }
 }
 
 function drawBullet(b) {
@@ -262,8 +264,9 @@ function sendState() {
 
 function applyRemoteState(state) {
   bullets.forEach(b => b.el?.remove());
-  bullets = state.bullets || [];
+  bullets = [];
 
+  bullets = state.bullets.map(b => ({ ...b }));
   if (playerRole === "A") {
     Object.assign(me, state.me);
     Object.assign(enemy, state.enemy);
