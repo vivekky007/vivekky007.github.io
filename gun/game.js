@@ -166,10 +166,15 @@ function simulate() {
     if (b.owner === "A" && hit(b, enemy)) { damage(enemy); b.el?.remove(); return false; }
     if (b.owner === "B" && hit(b, me)) { damage(me); b.el?.remove(); return false; }
 
-    return (
+    const inBounds =
       b.x > -BULLET_SIZE && b.x < W + BULLET_SIZE &&
-      b.y > -BULLET_SIZE && b.y < H + BULLET_SIZE
-    );
+      b.y > -BULLET_SIZE && b.y < H + BULLET_SIZE;
+    
+    if (!inBounds) {
+      b.el?.remove();  
+    }
+    
+    return inBounds;
   });
 }
 
@@ -266,7 +271,11 @@ function applyRemoteState(state) {
   bullets.forEach(b => b.el?.remove());
   bullets = [];
 
-  bullets = state.bullets.map(b => ({ ...b }));
+  bullets = state.bullets.map(b => ({
+    ...b,
+    el: null 
+  }));
+
   if (playerRole === "A") {
     Object.assign(me, state.me);
     Object.assign(enemy, state.enemy);
