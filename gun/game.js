@@ -198,14 +198,29 @@ function spawnBullet(player,angleOverride) {
   });
 }
 
-if (shootBtn) shootBtn.onclick = () => {
-  if (mode !== "game") return;
-  if (isHost) {
-    spawnBullet(playerRole,me.angle);
-  }
+if (shootBtn) {
+  shootBtn.style.touchAction = "none";
 
-  sendToRN({ action: "shoot", player: playerRole,angle: me.angle });
-};
+  shootBtn.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (mode !== "game") return;
+
+    if (isHost) {
+      spawnBullet(playerRole, me.angle);
+    }
+
+    sendToRN({
+      action: "shoot",
+      player: playerRole,
+      angle: me.angle
+    });
+  });
+
+
+}
+
 
 /* ---------- RENDER ---------- */
 function render() {
@@ -290,9 +305,12 @@ function strip(o) {
 }
 
 /* ---------- AIM JOYSTICK ---------- */
-let aiming = false, centerX = 0, centerY = 0;
+let aiming = false;
+let centerX = 0, centerY = 0;
 let aimPointerId = null;
-aimZone.style.touchAction = "none"; // VERY IMPORTANT
+const MAX_RADIUS = 60;
+
+aimZone.style.touchAction = "none";
 
 aimZone.addEventListener("pointerdown", e => {
   if (aiming) return;
@@ -309,12 +327,22 @@ aimZone.addEventListener("pointerdown", e => {
 aimZone.addEventListener("pointermove", e => {
   if (!aiming || e.pointerId !== aimPointerId || mode !== "game") return;
 
-  const dx = e.clientX - centerX;
-  const dy = e.clientY - centerY;
-  const angle = Math.atan2(dy, dx);
+  let dx = e.clientX - centerX;
+  let dy = e.clientY - centerY;
 
-  me.angle = angle; // local prediction
-  sendToRN({ action: "aim", player: playerRole, angle });
+  const dist = Math.hypot(dx, dy);
+  if (dist > MAX_RADIUS) {
+    dx = (dx / dist) * MAX_RADIUS;
+    dy = (dy / dist) * MAX_RADIUS;
+  }
+
+  const nx = dx / MAX_RADIUS;
+  const ny = dy / MAX_RADIUS;
+  const angle = Math.atan2(ny, nx);
+
+  me.angle = angle;
+
+  sendToRN({ action: "aim", player: playerRole, angle, nx, ny });
 });
 
 aimZone.addEventListener("pointerup", e => {
@@ -325,6 +353,15 @@ aimZone.addEventListener("pointerup", e => {
   aimZone.releasePointerCapture(e.pointerId);
   stick.style.transform = "translate(0,0)";
 });
+
+aimZone.addEventListener("pointercancel", e => {
+  if (e.pointerId !== aimPointerId) return;
+
+  aiming = false;
+  aimPointerId = null;
+  stick.style.transform = "translate(0,0)";
+});
+
 /* ---------- RESIZE ---------- */
 window.addEventListener("resize", () => {
   W = window.innerWidth;
