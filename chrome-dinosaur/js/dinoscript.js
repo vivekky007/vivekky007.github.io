@@ -109,9 +109,7 @@ function drawGameOver(){
 
 
 function update(){
-  if (isGameOver) {
-	  drawGameOver();
-	}
+
 
   if(!onG){
     p.yv += grav;
@@ -237,6 +235,9 @@ function update(){
   ctx.fillText(p.score, 170, canvas.height - 40);
   ctx.fillText("Highscore: ", 600, canvas.height - 40);
   ctx.fillText(p.hscore, 715, canvas.height - 40);
+  if (isGameOver) {
+	  drawGameOver();
+	}
 }
 
 function gameover(){
