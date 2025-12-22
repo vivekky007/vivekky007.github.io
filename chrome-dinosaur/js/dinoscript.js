@@ -2,7 +2,7 @@
 //char = 89x94
 //char 1 @ 1514
 //char 2 @ 1603
-
+isGameOver = false;
 scoreInterval = 0;
 frameInterval = 0;
 groundscroll = 0;
@@ -223,6 +223,8 @@ function update(){
 
 function gameover(){
   gamespeed = 0;
+  GameOver = true;
+	
   console.log("HIT!");
   if (p.score > p.hscore){
     p.hscore = p.score;
@@ -240,6 +242,20 @@ function gameover(){
   multiS = -1;
   multiB = -1;
 }
+
+
+function drawGameOver(){
+  // GAME OVER text location in Chrome Dino sprite
+  ctx.drawImage(
+    sprImg,
+    954, 0,      // source X, Y (sprite sheet)
+    382, 22,     // source width, height
+    canvas.width / 2 - 191,
+    canvas.height / 2 - 50,
+    382, 22
+  );
+}
+
 
 function keyDown(evt) {
 	if (evt.keyCode == 38) {
@@ -260,4 +276,7 @@ function rngS(){
 function rngB(){
   multiB = Math.floor(Math.random() * 3) + 1;
   picB = 652 + (Math.floor(Math.random() * 2) * 150);
+}
+if (isGameOver) {
+  drawGameOver();
 }
