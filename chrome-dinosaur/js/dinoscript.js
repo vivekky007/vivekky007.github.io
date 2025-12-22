@@ -261,6 +261,27 @@ function gameover(){
   multiS = -1;
   multiB = -1;
 }
+function restartGame() {
+  isGameOver = false;
+  gamespeed = 7;
+
+  p.score = 0;
+  p.y = plat.y - p.h;
+  p.yv = 0;
+
+  obsB.scroll = -200;
+  obsS.scroll = -100;
+  obsB.on = false;
+  obsS.on = false;
+
+  groundscroll = 0;
+  groundscroll2 = 0;
+  tempstart = 0;
+  groundbool = false;
+
+  multiS = -1;
+  multiB = -1;
+}
 
 
 
@@ -268,12 +289,16 @@ function gameover(){
 
 function keyDown(evt) {
 	if (evt.keyCode == 38) {
-			if(onG) {
-				p.yv=-p.jump;
-			}
-      if(gamespeed == 0){
-        gamespeed = 7;
-      }
+		if (isGameOver) {
+	      restartGame();
+	      return;
+	    }
+		if(onG) {
+			p.yv=-p.jump;
+		}
+        if(gamespeed == 0){
+         gamespeed = 7;
+        }
 	}
 }
 
