@@ -223,7 +223,7 @@ function update(){
 
 function gameover(){
   gamespeed = 0;
-  GameOver = true;
+  isGameOver = true;
 	
   console.log("HIT!");
   if (p.score > p.hscore){
