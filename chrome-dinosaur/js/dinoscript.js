@@ -95,7 +95,24 @@ window.onload = function(){
 
 }
 
+
+function drawGameOver(){
+  // GAME OVER text location in Chrome Dino sprite
+  ctx.drawImage(
+    sprImg,
+    954, 0,      // source X, Y (sprite sheet)
+    382, 22,     // source width, height
+    canvas.width / 2 - 191,
+    canvas.height / 2 - 50,
+    382, 22
+  );
+}
+
 function update(){
+  if (isGameOver) {
+	  drawGameOver();
+	}
+
   if(!onG){
     p.yv += grav;
   }
@@ -213,6 +230,7 @@ function update(){
     }
   }
 
+
   ctx.font='20px verdana';
   ctx.fillStyle="black";
   ctx.fillText("Score: ", 100, canvas.height - 40);
@@ -244,17 +262,7 @@ function gameover(){
 }
 
 
-function drawGameOver(){
-  // GAME OVER text location in Chrome Dino sprite
-  ctx.drawImage(
-    sprImg,
-    954, 0,      // source X, Y (sprite sheet)
-    382, 22,     // source width, height
-    canvas.width / 2 - 191,
-    canvas.height / 2 - 50,
-    382, 22
-  );
-}
+
 
 
 function keyDown(evt) {
@@ -276,7 +284,4 @@ function rngS(){
 function rngB(){
   multiB = Math.floor(Math.random() * 3) + 1;
   picB = 652 + (Math.floor(Math.random() * 2) * 150);
-}
-if (isGameOver) {
-  drawGameOver();
 }
