@@ -25,12 +25,13 @@ let isHost = false;
 const me = {
   x: 50, y: 50, dx: 3, dy: 3,
   angle: 0, health: 100,
+  ammo:6,
   el: null, cannon: null, hp: null
 };
 
 const enemy = {
   x: 250, y: 400, dx: 3, dy: 3,
-  angle: 0, health: 100,
+  angle: 0, health: 100,ammo:6,
   el: null, cannon: null, hp: null
 };
 
@@ -190,6 +191,10 @@ function spawnBullet(player,angleOverride) {
   const angle = angleOverride ?? (player === "A" ? aimA : aimB);
   const p = player === "A" ? me : enemy;
 
+  if (p.ammo <= 0) return;
+
+  p.ammo--; // ✅ consume ammo
+
   bullets.push({
     x: p.x + BOX / 2,
     y: p.y + BOX / 2,
@@ -206,7 +211,7 @@ if (shootBtn) {
     e.stopPropagation();
 
     if (mode !== "game") return;
-
+    if (me.ammo <= 0) return;
     if (isHost) {
       spawnBullet(playerRole, me.angle);
     }
@@ -301,8 +306,15 @@ function applyRemoteState(state) {
 }
 
 function strip(o) {
-  return { x: o.x, y: o.y, angle: o.angle, health: o.health };
+  return {
+    x: o.x,
+    y: o.y,
+    angle: o.angle,
+    health: o.health,
+    ammo: o.ammo     // ✅ ADD
+  };
 }
+
 
 /* ---------- AIM JOYSTICK ---------- */
 let aiming = false;
