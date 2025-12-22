@@ -98,7 +98,7 @@ window.onload = function(){
 
 function drawGameOver(){
   // GAME OVER text location in Chrome Dino sprite
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0 - groundscroll + tempstart, plat.y - 24, 2404, 18);
+  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0 - groundscroll + tempstart, plat.y - 50, 2404, 18);
 }
 
 function update(){
