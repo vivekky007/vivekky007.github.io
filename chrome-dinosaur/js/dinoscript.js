@@ -103,7 +103,7 @@ function drawGameOver(){
     382, 100,     // source width, height
     canvas.width / 2 - 191,  // center X on canvas
     canvas.height / 2 - 50,  // center Y on canvas
-    382, 22                  // destination width, height
+    382, 80                  // destination width, height
   );
 }
 
