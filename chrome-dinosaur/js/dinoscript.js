@@ -100,7 +100,7 @@ function drawGameOver(){
   ctx.drawImage(
     sprImg,
     954, 0,      // source X, Y in sprite sheet (Game Over text)
-    382, 22,     // source width, height
+    382, 50,     // source width, height
     canvas.width / 2 - 191,  // center X on canvas
     canvas.height / 2 - 50,  // center Y on canvas
     382, 22                   // destination width, height
