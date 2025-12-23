@@ -1,22 +1,91 @@
 <html>
-<head>
-  <title>Chrome Dino</title>
-  <style>
-    body {
-      background: #ffffff;
-      color: #fff;
-      font-family: sans-serif;
-      font-size: 3em;
-      text-align: center;
-    }
+  <head>
+    <title>Chrome Dino</title>
+    <style>
+      body {
+        background: black;
+        color: white;
+        overflow: hidden;
+      }
 
-    canvas {
-      width: 100%;
-    }
-  </style>
-</head>
-<body>
-  <canvas id="game" width="1000" height="400" />
-  <script src="js/dinoscript.js"></script>
-</body>
+      /* Lobby */
+      #lobby {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        z-index: 5000;
+      }
+
+      #lobby input {
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        text-align: center;
+      }
+
+      #lobby button {
+        padding: 12px 22px;
+        border-radius: 10px;
+        border: none;
+        background: #444;
+        color: white;
+        font-size: 18px;
+      }
+
+      #startBtn {
+        display: none;
+      }
+
+      /* Status */
+      #status {
+        position: fixed;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 3000;
+        font-size: 18px;
+      }
+
+      canvas {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Lobby -->
+    <div id="lobby">
+      <h1>Dino Race</h1>
+      <input id="roomId" placeholder="Room ID" />
+
+      <div id="lobby">
+        <h1>Multiplayer Gun</h1>
+        <input id="roomId" placeholder="Room ID" />
+        <div>
+          <button
+            onclick="sendToRN({ action: 'createRoom', roomId: roomId.value })"
+          >
+            Create Room
+          </button>
+          <button
+            onclick="sendToRN({ action: 'joinRoom', roomId: roomId.value })"
+          >
+            Join Room
+          </button>
+        </div>
+        <button id="startBtn">Start Game</button>
+      </div>
+    </div>
+    <div id="status">Not connected</div>
+    <!-- Game UI -->
+    <div id="gameUI" style="display: none">
+      <canvas id="game" width="1000" height="400"></canvas>
+    </div>
+
+    <script src="js/dinoscript.js"></script>
+  </body>
 </html>
