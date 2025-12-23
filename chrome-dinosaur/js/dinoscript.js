@@ -112,6 +112,8 @@ function startGame() {
   restartGame(); 
   mode = "game";
   lobby.style.display = "none";
+  gameUI.classList.remove("hidden");
+
   statusEl.innerText = "Connected ✔";
 
 }
