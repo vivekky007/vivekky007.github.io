@@ -109,7 +109,7 @@ function drawGameOver(){
     sprImg,
     0, 0,      // source X, Y in sprite sheet (Game Over text)
     80, 70,     // source width, height
-    canvas.width / 2 - 191,  // center X on canvas
+    canvas.width / 2 - 291,  // center X on canvas
     canvas.height / 2 - 50+40,  // center Y on canvas
     80, 70                  // destination width, height
   );
