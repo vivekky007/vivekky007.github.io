@@ -71,17 +71,71 @@ pbox = ({
   w : 80,
   h : 75
 });
-
+let mode = "lobby";
 onG = false;
 sprImg = new Image();
+let lastTouch = 0;
+
+const lobby = document.getElementById("lobby");
+const statusEl = document.getElementById("status");
+const startBtn = document.getElementById("startBtn");
+
+function sendToRN(data) {
+  window.ReactNativeWebView?.postMessage(JSON.stringify(data));
+}
+
+
+window.onRNMessage = function (msg) {
+  if (!msg) return;
+  if (typeof msg === "string") {
+    try { msg = JSON.parse(msg); } catch { return; }
+  }
+
+  if (msg.action === "assign" || msg.type === "assign") {
+    playerRole = msg.player;
+    isHost = playerRole === "A";
+    createStartButton();
+  }
+
+
+  if (msg.action === "start"||msg.type==="start") {
+    startGame();
+  }
+
+
+
+
+};
+
+function startGame() {
+  if (mode === "game") return;
+  restartGame(); 
+  mode = "game";
+  lobby.style.display = "none";
+  statusEl.innerText = "Connected ✔";
+
+}
+function createStartButton() {
+  if (!startBtn) return;
+  startBtn.style.display = "block";
+  startBtn.onclick = () => {
+    startBtn.style.display = "none";
+    sendToRN({ action: isHost ? "start" : "requestStart" });
+    if (isHost) startGame();
+  };
+}
 
 window.onload = function(){
   canvas = document.getElementById('game');
   ctx = canvas.getContext('2d');
 
 	setInterval(update,1000/60);
-
-  document.addEventListener("keydown",keyDown);
+  document.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    lastTouch = Date.now();
+    tryJump();
+  }, { passive: false });
+  
 
   sprImg.src = "sprite.png";
 
@@ -113,7 +167,8 @@ function drawGameOver(){
     canvas.height / 2 - 50+40,  // center Y on canvas
     80, 70                  // destination width, height
   );
-  
+
+    
 }
 
 
@@ -294,21 +349,19 @@ function restartGame() {
 
 
 
+function tryJump() {
+  if (isGameOver) {
+    restartGame();
+    return;
+  }
 
+  if (onG) {
+    p.yv = -p.jump;
+  }
 
-function keyDown(evt) {
-	if (evt.keyCode == 38) {
-		if (isGameOver) {
-	      restartGame();
-	      return;
-	    }
-		if(onG) {
-			p.yv=-p.jump;
-		}
-        if(gamespeed == 0){
-         gamespeed = 7;
-        }
-	}
+  if (gamespeed === 0) {
+    gamespeed = 7;
+  }
 }
 
 function rngS(){
