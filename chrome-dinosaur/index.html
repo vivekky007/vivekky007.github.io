@@ -58,28 +58,26 @@
   </head>
   <body>
     <!-- Lobby -->
-    <div id="lobby">
-      <h1>Dino Race</h1>
-      <input id="roomId" placeholder="Room ID" />
+    />
 
-      <div id="lobby">
-        <h1>Multiplayer Gun</h1>
-        <input id="roomId" placeholder="Room ID" />
-        <div>
-          <button
-            onclick="sendToRN({ action: 'createRoom', roomId: roomId.value })"
-          >
-            Create Room
-          </button>
-          <button
-            onclick="sendToRN({ action: 'joinRoom', roomId: roomId.value })"
-          >
-            Join Room
-          </button>
-        </div>
-        <button id="startBtn">Start Game</button>
+    <div id="lobby">
+      <h1>Multiplayer Gun</h1>
+      <input id="roomId" placeholder="Room ID" />
+      <div>
+        <button
+          onclick="sendToRN({ action: 'createRoom', roomId: roomId.value })"
+        >
+          Create Room
+        </button>
+        <button
+          onclick="sendToRN({ action: 'joinRoom', roomId: roomId.value })"
+        >
+          Join Room
+        </button>
       </div>
+      <button id="startBtn">Start Game</button>
     </div>
+
     <div id="status">Not connected</div>
     <!-- Game UI -->
     <div id="gameUI" style="display: none">
