@@ -129,13 +129,11 @@ window.onload = function(){
   canvas = document.getElementById('game');
   ctx = canvas.getContext('2d');
 
-	setInterval(update,1000/60);
-  document.addEventListener("touchstart", (e) => {
+  setInterval(update,1000/60);
+  canvas.addEventListener("touchstart", (e) => {
     e.preventDefault();
-    lastTouch = Date.now();
     tryJump();
   }, { passive: false });
-  
 
   sprImg.src = "sprite.png";
 
