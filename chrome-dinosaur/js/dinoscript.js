@@ -325,12 +325,21 @@ function update() {
 
   /* ---------- OBSTACLES HOST LOGIC ---------- */
 
-  // SMALL obstacle
-  if (!obsS.on) {
-    obsS.on = true;
-    if (multiS === -1) rngS();
-    obsS.scroll = -obsS.w * multiS; // spawn outside canvas
-  } else {
+/* ---------- OBSTACLES HOST LOGIC ---------- */
+  if (!obsS.on && !obsB.on) {
+    if (Math.random() < 0.5) {
+      // spawn small
+      obsS.on = true;
+      rngS();
+    } else {
+      // spawn big
+      obsB.on = true;
+      rngB();
+    }
+  }
+
+  // update scroll and deactivate when off-screen
+  if (obsS.on) {
     obsS.scroll += gamespeed;
     if (obsS.scroll > canvas.width + obsS.w * multiS) {
       obsS.on = false;
@@ -338,18 +347,14 @@ function update() {
     }
   }
 
-  // BIG obstacle
-  if (!obsB.on) {
-    obsB.on = true;
-    if (multiB === -1) rngB();
-    obsB.scroll = -obsB.w * multiB; // spawn outside canvas
-  } else {
+  if (obsB.on) {
     obsB.scroll += gamespeed;
     if (obsB.scroll > canvas.width + obsB.w * multiB) {
       obsB.on = false;
       multiB = -1;
     }
   }
+
 
   /* ---------- ANIMATION ---------- */
   frameInterval++;
