@@ -48,11 +48,11 @@ obsF = ({
 })
 
 p = ({
-  x : 100,
-  y : 500,
-  w : 89,
-  h : 94,
-  yv : 0,
+  x: 100,
+  y: 500,
+  w: 89,
+  h: 94,
+  yv: 0,
   score: 0,
   hscore: 0,
   jump: 15
@@ -77,10 +77,10 @@ pcrouch = ({
 });
 
 pbox = ({
-  x : p.x,
-  y : 0,
-  w : 80,
-  h : 75
+  x: p.x,
+  y: 0,
+  w: 80,
+  h: 75
 });
 
 p2box = ({
@@ -174,7 +174,7 @@ window.onPeerMessage = (msg) => {
 
 function startGame() {
   if (mode === "game") return;
-  restartGame(); 
+  restartGame();
   mode = "game";
   lobby.style.display = "none";
   gameUI.classList.remove("hidden");
@@ -192,11 +192,11 @@ function createStartButton() {
   };
 }
 
-window.onload = function(){
+window.onload = function () {
   canvas = document.getElementById('game');
   ctx = canvas.getContext('2d');
 
-  setInterval(update,1000/60);
+  setInterval(update, 1000 / 60);
   canvas.addEventListener("touchstart", (e) => {
     e.preventDefault();
     tryJump();
@@ -215,7 +215,7 @@ window.onload = function(){
 }
 
 
-function drawGameOver(){
+function drawGameOver() {
   ctx.drawImage(
     sprImg,
     954, 30,      // source X, Y in sprite sheet (Game Over text)
@@ -229,11 +229,11 @@ function drawGameOver(){
     0, 0,      // source X, Y in sprite sheet (Game Over text)
     80, 70,     // source width, height
     canvas.width / 2 - 40,  // center X on canvas
-    canvas.height / 2 - 50+40,  // center Y on canvas
+    canvas.height / 2 - 50 + 40,  // center Y on canvas
     80, 70                  // destination width, height
   );
 
-    
+
 }
 
 function drawOnly() {
@@ -273,16 +273,15 @@ function update() {
   /* ---------- CLIENT: DRAW ONLY ---------- */
   if (!isHost && mode === "game") {
     drawOnly();
-	if (isGameOver) drawGameOver();
+    if (isGameOver) drawGameOver();
     return;
   }
 
-  /* ---------- PLAYER 1 PHYSICS ---------- */
+  /* ---------- PLAYER PHYSICS ---------- */
   if (!onG) p.yv += grav;
   p.y += p.yv;
   pbox.y = p.y;
 
-  /* ---------- PLAYER 2 PHYSICS ---------- */
   if (!onG2) p2.yv += grav;
   p2.y += p2.yv;
   p2box.y = p2.y;
@@ -302,93 +301,81 @@ function update() {
   onG = false;
   onG2 = false;
 
-  if (p.y + p.h > plat.y) {
-    p.y = plat.y - p.h;
-    onG = true;
-  }
+  if (p.y + p.h > plat.y) { p.y = plat.y - p.h; onG = true; }
+  if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h; onG2 = true; }
 
-  if (p2.y + p2.h > plat.y) {
-    p2.y = plat.y - p2.h;
-    onG2 = true;
-  }
-
-  /* ---------- COLLISION (P1 & P2) ---------- */
+  /* ---------- COLLISION ---------- */
   const hitBig =
     (pbox.x > (canvas.width - obsB.scroll) - p.w &&
-     pbox.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
-     pbox.y > obsB.y - pbox.h) ||
+      pbox.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
+      pbox.y > obsB.y - pbox.h) ||
     (p2box.x > (canvas.width - obsB.scroll) - p2.w &&
-     p2box.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
-     p2box.y > obsB.y - p2box.h);
+      p2box.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
+      p2box.y > obsB.y - p2box.h);
 
   const hitSmall =
     (pbox.x > (canvas.width - obsS.scroll) - p.w &&
-     pbox.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
-     pbox.y > obsS.y - pbox.h) ||
+      pbox.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
+      pbox.y > obsS.y - pbox.h) ||
     (p2box.x > (canvas.width - obsS.scroll) - p2.w &&
-     p2box.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
-     p2box.y > obsS.y - p2box.h);
+      p2box.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
+      p2box.y > obsS.y - p2box.h);
 
-  if (hitBig || hitSmall) {
-    gameover();
+  if (hitBig || hitSmall) gameover();
+
+  /* ---------- OBSTACLES HOST LOGIC ---------- */
+
+  // SMALL obstacle
+  if (!obsS.on) {
+    obsS.on = true;
+    if (multiS === -1) rngS();
+    obsS.scroll = -obsS.w * multiS; // spawn outside canvas
+  } else {
+    obsS.scroll += gamespeed;
+    if (obsS.scroll > canvas.width + obsS.w * multiS) {
+      obsS.on = false;
+      multiS = -1;
+    }
+  }
+
+  // BIG obstacle
+  if (!obsB.on) {
+    obsB.on = true;
+    if (multiB === -1) rngB();
+    obsB.scroll = -obsB.w * multiB; // spawn outside canvas
+  } else {
+    obsB.scroll += gamespeed;
+    if (obsB.scroll > canvas.width + obsB.w * multiB) {
+      obsB.on = false;
+      multiB = -1;
+    }
   }
 
   /* ---------- ANIMATION ---------- */
   frameInterval++;
-  if (frameInterval > 5) {
-    bool = !bool;
-    frameInterval = 0;
-  }
-
+  if (frameInterval > 5) { bool = !bool; frameInterval = 0; }
   if (bool && onG) frame = 1514;
   else if (!bool && onG) frame = 1602;
   else frame = 1338;
 
-  /* ---------- CLEAR ---------- */
+  /* ---------- CLEAR + DRAW ---------- */
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  /* ---------- GROUND ---------- */
+  // GROUND
   groundscroll += gamespeed;
-  ctx.drawImage(
-    sprImg,
-    0, 104, 2404, 18,
-    -groundscroll + tempstart,
-    plat.y - 24,
-    2404, 18
-  );
+  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
 
-  /* ---------- PLAYERS ---------- */
+  // PLAYERS
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
   ctx.drawImage(sprImg, frame, 0, 88, 94, p2.x, p2.y, p2.w, p2.h);
 
-  /* ---------- OBSTACLES (UNCHANGED) ---------- */
-  if (!obsB.on) {
-    obsS.on = true;
-    if (multiS === -1) rngS();
-    ctx.drawImage(
-      sprImg, picS, 2,
-      obsS.w * multiS, obsS.h,
-      canvas.width - obsS.scroll,
-      obsS.y,
-      obsS.w * multiS,
-      obsS.h
-    );
-    obsS.scroll += gamespeed;
+  // OBSTACLES
+  if (obsS.on) {
+    ctx.drawImage(sprImg, picS, 2, obsS.w * multiS, obsS.h, canvas.width - obsS.scroll, obsS.y, obsS.w * multiS, obsS.h);
   }
-
-  if (!obsS.on) {
-    obsB.on = true;
-    if (multiB === -1) rngB();
-    ctx.drawImage(
-      sprImg, 652, 2,
-      obsB.w * multiB, obsB.h,
-      canvas.width - obsB.scroll,
-      obsB.y,
-      obsB.w * multiB,
-      obsB.h
-    );
-    obsB.scroll += gamespeed;
+  if (obsB.on) {
+    ctx.drawImage(sprImg, 652, 2, obsB.w * multiB, obsB.h, canvas.width - obsB.scroll, obsB.y, obsB.w * multiB, obsB.h);
   }
 
   /* ---------- UI ---------- */
@@ -396,46 +383,30 @@ function update() {
   ctx.font = "20px verdana";
   ctx.fillText("Score:", 100, canvas.height - 40);
   ctx.fillText(p.score, 170, canvas.height - 40);
-
   if (isGameOver) drawGameOver();
 
   /* ---------- SYNC TO CLIENT ---------- */
-	sendToRN({
-	  type: "stateDino",
-	
-	  // players
-	  p1: {
-	    x: p.x,
-	    y: p.y,
-	    yv: p.yv
-	  },
-	  p2: {
-	    x: p2.x,
-	    y: p2.y,
-	    yv: p2.yv
-	  },
-	
-	  // obstacles
-	  obsS: { ...obsS },
-	  obsB: { ...obsB },
-	
-	  // world
-	  groundscroll,
-	  frame,
-	  gamespeed,
-	  score: p.score,
-	  isGameOver
-	});
-
+  sendToRN({
+    type: "stateDino",
+    p1: { x: p.x, y: p.y, yv: p.yv },
+    p2: { x: p2.x, y: p2.y, yv: p2.yv },
+    obsS: { ...obsS },
+    obsB: { ...obsB },
+    groundscroll,
+    frame,
+    gamespeed,
+    score: p.score,
+    isGameOver
+  });
 }
 
 
-function gameover(){
+function gameover() {
   gamespeed = 0;
   isGameOver = true;
-	
+
   console.log("HIT!");
-  if (p.score > p.hscore){
+  if (p.score > p.hscore) {
     p.hscore = p.score;
   }
   p.score = 0;
@@ -499,12 +470,12 @@ function tryJump() {
   }
 }
 
-function rngS(){
+function rngS() {
   multiS = Math.floor(Math.random() * 3) + 1;
   picS = 446 + (Math.floor(Math.random() * 2) * 102);
 }
 
-function rngB(){
+function rngB() {
   multiB = Math.floor(Math.random() * 3) + 1;
   picB = 652 + (Math.floor(Math.random() * 2) * 150);
 }
