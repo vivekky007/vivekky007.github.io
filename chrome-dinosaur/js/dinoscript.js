@@ -128,28 +128,30 @@ window.onRNMessage = function (msg) {
   }
 
   if (msg.type === "stateDino" && !isHost) {
-	  const s = msg;
-	
-	  // players
-	  p.x = s.p1.x;
-	  p.y = s.p1.y;
-	  p.yv = s.p1.yv;
-	
-	  p2.x = s.p2.x;
-	  p2.y = s.p2.y;
-	  p2.yv = s.p2.yv;
-	
-	  // obstacles
-	  obsS = s.obsS;
-	  obsB = s.obsB;
-	
-	  // world
-	  groundscroll = s.groundscroll;
-	  frame = s.frame;
-	  gamespeed = s.gamespeed;
-	  p.score = s.score;
-	  isGameOver = s.isGameOver;
-	}
+    const s = msg.state;
+
+    // players
+    p.x = s.p1.x;
+    p.y = s.p1.y;
+    p.yv = s.p1.yv;
+
+    p2.x = s.p2.x;
+    p2.y = s.p2.y;
+    p2.yv = s.p2.yv;
+
+    // obstacles
+    obsS = s.obsS;
+    obsB = s.obsB;
+
+    // world
+    groundscroll = s.groundscroll;
+    frame = s.frame;
+    gamespeed = s.gamespeed;
+
+    p.score = s.score;
+    isGameOver = s.isGameOver;
+  }
+
 
 };
 
@@ -470,9 +472,8 @@ function tryJump() {
   }
 
   if (!isHost) {
-	p2.yv = -p2.jump;
     sendToRN({ type: "jump" });
- 
+    return;
   }
 
   if (onG) {
