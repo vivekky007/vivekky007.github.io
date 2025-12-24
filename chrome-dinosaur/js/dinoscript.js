@@ -469,10 +469,10 @@ function tryJump() {
     return;
   }
 
-  if (!isHost) {
-    sendToRN({ type: "jump" });
-    return;
-  }
+	if (!isHost) {
+	  p2.yv = -p2.jump; // visual prediction
+	  sendToRN({ type: "jump" });
+	}
 
   if (onG) {
     p.yv = -p.jump;
