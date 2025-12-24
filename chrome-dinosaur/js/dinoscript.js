@@ -123,23 +123,34 @@ window.onRNMessage = function (msg) {
   }
 
   if (msg.type === "jump" && isHost) {
-    if (onG2) p2.yv = -p2.jump;
+    p2.yv = -p2.jump;
     return;
   }
 
-  if (msg.type !== "stateDino") return;
-  if (isHost) return;
+  if (msg.type === "stateDino" && !isHost) {
+	  const s = msg;
+	
+	  // players
+	  p.x = s.p1.x;
+	  p.y = s.p1.y;
+	  p.yv = s.p1.yv;
+	
+	  p2.x = s.p2.x;
+	  p2.y = s.p2.y;
+	  p2.yv = s.p2.yv;
+	
+	  // obstacles
+	  obsS = s.obsS;
+	  obsB = s.obsB;
+	
+	  // world
+	  groundscroll = s.groundscroll;
+	  frame = s.frame;
+	  gamespeed = s.gamespeed;
+	  p.score = s.score;
+	  isGameOver = s.isGameOver;
+	}
 
-  const s = msg;
-
-  p.x = s.p1.x;
-  p.y = s.p1.y;
-  p2.x = s.p2.x;
-  p2.y = s.p2.y;
-
-  obsS = s.obsS;
-  obsB = s.obsB;
-  p.score = s.score;
 };
 
 
@@ -250,6 +261,7 @@ function update() {
   /* ---------- CLIENT: DRAW ONLY ---------- */
   if (!isHost && mode === "game") {
     drawOnly();
+	if (isGameOver) drawGameOver();
     return;
   }
 
@@ -376,14 +388,33 @@ function update() {
   if (isGameOver) drawGameOver();
 
   /* ---------- SYNC TO CLIENT ---------- */
-  sendToRN({
-    type: "stateDino",
-    p1: { x: p.x, y: p.y },
-    p2: { x: p2.x, y: p2.y },
-    obsS,
-    obsB,
-    score: p.score
-  });
+	sendToRN({
+	  type: "stateDino",
+	
+	  // players
+	  p1: {
+	    x: p.x,
+	    y: p.y,
+	    yv: p.yv
+	  },
+	  p2: {
+	    x: p2.x,
+	    y: p2.y,
+	    yv: p2.yv
+	  },
+	
+	  // obstacles
+	  obsS: { ...obsS },
+	  obsB: { ...obsB },
+	
+	  // world
+	  groundscroll,
+	  frame,
+	  gamespeed,
+	  score: p.score,
+	  isGameOver
+	});
+
 }
 
 
