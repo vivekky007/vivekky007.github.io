@@ -104,10 +104,7 @@ function sendToRN(data) {
 }
 
 window.onRNMessage = function (msg) {
-  if (mode !== "game") {
-    drawOnly();
-    return;
-  }
+
   if (!msg) return;
   if (typeof msg === "string") {
     try { msg = JSON.parse(msg); } catch { return; }
