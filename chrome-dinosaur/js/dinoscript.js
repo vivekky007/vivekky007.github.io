@@ -103,7 +103,6 @@ function sendToRN(data) {
   window.ReactNativeWebView?.postMessage(JSON.stringify(data));
 }
 
-
 window.onRNMessage = function (msg) {
   if (!msg) return;
   if (typeof msg === "string") {
@@ -114,37 +113,34 @@ window.onRNMessage = function (msg) {
     playerRole = msg.player;
     isHost = playerRole === "A";
     createStartButton();
+    return;
   }
 
-
-  if (msg.action === "start"||msg.type==="start") {
+  if (msg.action === "start" || msg.type === "start") {
     startGame();
+    return;
+  }
+
+  if (msg.type === "jump" && isHost) {
+    if (onG2) p2.yv = -p2.jump;
+    return;
   }
 
   if (msg.type !== "stateDino") return;
-    if (isHost) return; // host never applies remote state
+  if (isHost) return;
 
-    const s = msg.state;
+  const s = msg;
 
-    // Sync players
-    p.x = s.p1.x;
-    p.y = s.p1.y;
+  p.x = s.p1.x;
+  p.y = s.p1.y;
+  p2.x = s.p2.x;
+  p2.y = s.p2.y;
 
-    p2.x = s.p2.x;
-    p2.y = s.p2.y;
+  obsS = s.obsS;
+  obsB = s.obsB;
+  p.score = s.score;
+};
 
-    // Sync obstacles
-    obsS = s.obsS;
-    obsB = s.obsB;
-
-    // Sync score
-    p.score = s.score;
-  };
-  if (msg.type === "jump" && isHost) {
-    if (onG2) {
-      p2.yv = -p2.jump;
-    }
-  }
 
 
 
