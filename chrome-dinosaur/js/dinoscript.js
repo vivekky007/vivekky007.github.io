@@ -470,12 +470,16 @@ function tryJump() {
   }
 }
 
-function rngS() {
-  multiS = Math.floor(Math.random() * 3) + 1;
-  picS = 446 + (Math.floor(Math.random() * 2) * 102);
+function rngS(){
+  multiS = Math.floor(Math.random() * 3) + 1; // type
+  picS = 446 + (Math.floor(Math.random() * 2) * 102); // sprite
+  obsS.y = plat.y - obsS.h; // place on ground
+  obsS.scroll = -obsS.w * multiS; // spawn outside canvas
 }
 
-function rngB() {
-  multiB = Math.floor(Math.random() * 3) + 1;
-  picB = 652 + (Math.floor(Math.random() * 2) * 150);
+function rngB(){
+  multiB = Math.floor(Math.random() * 3) + 1; // type
+  picB = 652 + (Math.floor(Math.random() * 2) * 150); // sprite
+  obsB.y = plat.y - obsB.h; // place on ground
+  obsB.scroll = -obsB.w * multiB; // spawn outside canvas
 }
