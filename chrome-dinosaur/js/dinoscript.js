@@ -158,16 +158,12 @@ window.onPeerMessage = (msg) => {
   if (!isHost) return;
 
   if (msg.type === "jump") {
-    if (msg.player === "A") {
-      if (p.y >= groundY) {
-        p.yv = -p.jump;
-      }
+    if (msg.player === "A" && onG) {
+      p.yv = -p.jump;
     }
 
-    if (msg.player === "B") {
-      if (p2.y >= groundY) {
-        p2.yv = -p2.jump;
-      }
+    if (msg.player === "B" && onG2) {
+      p2.yv = -p2.jump;
     }
   }
 };
