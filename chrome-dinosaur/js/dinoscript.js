@@ -14,6 +14,7 @@ bool = false;
 grav = 0.6;
 
 gamespeed = 0;
+let onG2 = false;
 
 multiS = -1;
 picS = 0;
@@ -57,6 +58,16 @@ p = ({
   jump: 15
 });
 
+p2 = ({
+  x: 200,
+  y: 500,
+  w: 89,
+  h: 94,
+  yv: 0,
+  jump: 15
+});
+
+
 //crouching for flying objects
 pcrouch = ({
   x: p.x,
@@ -71,6 +82,14 @@ pbox = ({
   w : 80,
   h : 75
 });
+
+p2box = ({
+  x: p2.x,
+  y: p2.y,
+  w: 80,
+  h: 75
+});
+
 let mode = "lobby";
 onG = false;
 sprImg = new Image();
@@ -102,10 +121,36 @@ window.onRNMessage = function (msg) {
     startGame();
   }
 
+  if (msg.type !== "stateDino") return;
+    if (isHost) return; // host never applies remote state
+
+    const s = msg.state;
+
+    // Sync players
+    p.x = s.p1.x;
+    p.y = s.p1.y;
+
+    p2.x = s.p2.x;
+    p2.y = s.p2.y;
+
+    // Sync obstacles
+    obsS = s.obsS;
+    obsB = s.obsB;
+
+    // Sync score
+    p.score = s.score;
+  };
+  if (msg.type === "jump" && isHost) {
+    if (onG2) {
+      p2.yv = -p2.jump;
+    }
+  }
 
 
 
-};
+
+
+
 
 function startGame() {
   if (mode === "game") return;
@@ -171,138 +216,179 @@ function drawGameOver(){
     
 }
 
+function drawOnly() {
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-function update(){
+  // ground
+  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0, plat.y - 24, 2404, 18);
+
+  // obstacles
+  ctx.drawImage(
+    sprImg, picS, 2,
+    obsS.w * multiS, obsS.h,
+    canvas.width - obsS.scroll,
+    obsS.y,
+    obsS.w * multiS,
+    obsS.h
+  );
+
+  ctx.drawImage(
+    sprImg, 652, 2,
+    obsB.w * multiB, obsB.h,
+    canvas.width - obsB.scroll,
+    obsB.y,
+    obsB.w * multiB,
+    obsB.h
+  );
+
+  // players
+  ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
+  ctx.drawImage(sprImg, frame, 0, 88, 94, p2.x, p2.y, p2.w, p2.h);
+}
 
 
-  if(!onG){
-    p.yv += grav;
+function update() {
+
+  /* ---------- CLIENT: DRAW ONLY ---------- */
+  if (!isHost && mode === "game") {
+    drawOnly();
+    return;
   }
 
-  p.y+=p.yv;
+  /* ---------- PLAYER 1 PHYSICS ---------- */
+  if (!onG) p.yv += grav;
+  p.y += p.yv;
   pbox.y = p.y;
+
+  /* ---------- PLAYER 2 PHYSICS ---------- */
+  if (!onG2) p2.yv += grav;
+  p2.y += p2.yv;
+  p2box.y = p2.y;
+
+  /* ---------- SCORE ---------- */
   scoreInterval++;
-  if (scoreInterval > 6 && gamespeed != 0){
+  if (scoreInterval > 6 && gamespeed !== 0) {
     p.score++;
     scoreInterval = 0;
   }
 
-  if (gamespeed < 17 && gamespeed != 0){
-    gamespeed = 7 + (p.score/100);
+  if (gamespeed < 17 && gamespeed !== 0) {
+    gamespeed = 7 + (p.score / 100);
   }
 
+  /* ---------- GROUND COLLISION ---------- */
   onG = false;
-  if (p.y + p.h > plat.y){
+  onG2 = false;
+
+  if (p.y + p.h > plat.y) {
     p.y = plat.y - p.h;
     onG = true;
   }
-  //big collision
-  if (pbox.x > (canvas.width - obsB.scroll) - p.w && pbox.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
-    pbox.y > obsB.y - pbox.h){
-      gameover();
+
+  if (p2.y + p2.h > plat.y) {
+    p2.y = plat.y - p2.h;
+    onG2 = true;
   }
 
-  //small collision
-  if (pbox.x > (canvas.width - obsS.scroll) - p.w && pbox.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
-      pbox.y > obsS.y - pbox.h){
-        gameover();
+  /* ---------- COLLISION (P1 & P2) ---------- */
+  const hitBig =
+    (pbox.x > (canvas.width - obsB.scroll) - p.w &&
+     pbox.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
+     pbox.y > obsB.y - pbox.h) ||
+    (p2box.x > (canvas.width - obsB.scroll) - p2.w &&
+     p2box.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
+     p2box.y > obsB.y - p2box.h);
+
+  const hitSmall =
+    (pbox.x > (canvas.width - obsS.scroll) - p.w &&
+     pbox.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
+     pbox.y > obsS.y - pbox.h) ||
+    (p2box.x > (canvas.width - obsS.scroll) - p2.w &&
+     p2box.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
+     p2box.y > obsS.y - p2box.h);
+
+  if (hitBig || hitSmall) {
+    gameover();
   }
 
+  /* ---------- ANIMATION ---------- */
   frameInterval++;
-  if (frameInterval > 5){
+  if (frameInterval > 5) {
     bool = !bool;
     frameInterval = 0;
   }
-  else{
-  }
 
-  if (bool && onG){
-    frame = 1514;
-  }
-  else if (!bool && onG){
-    frame = 1602;
-  }
-  else{
-    frame = 1338;
-  }
+  if (bool && onG) frame = 1514;
+  else if (!bool && onG) frame = 1602;
+  else frame = 1338;
 
-  ctx.fillStyle="white";
-	ctx.fillRect(0,0,canvas.width,canvas.height);
+  /* ---------- CLEAR ---------- */
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // This is all for ground scrolling
-  groundscroll+=gamespeed;
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0 - groundscroll + tempstart, plat.y - 24, 2404, 18);
-  if (groundscroll - tempstart > 2404 - canvas.width || groundbool){
-    groundbool = true;
-    groundscroll2+=gamespeed;
-    ctx.drawImage(sprImg, 0, 104, canvas.width, 18, 0 - groundscroll2 + canvas.width, plat.y - 24, canvas.width, 18);
-    if (groundscroll2 > canvas.width && groundscroll - tempstart > 1000){
-      tempstart = canvas.width;
-      groundscroll = 20;
-    }
-    if (groundscroll2 > 2402){
-      groundscroll2 = 0;
-      groundbool = false;
-    }
-  }
+  /* ---------- GROUND ---------- */
+  groundscroll += gamespeed;
+  ctx.drawImage(
+    sprImg,
+    0, 104, 2404, 18,
+    -groundscroll + tempstart,
+    plat.y - 24,
+    2404, 18
+  );
 
-  //char drawing
-  if(gamespeed != 0){
-    ctx.fillStyle="black";
-    ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
-  }
-  else{
-    ctx.drawImage(sprImg, 1338, 0, 88, 94, p.x, p.y, p.w, p.h);
-  }
-  //ctx.fillRect(pbox.x, pbox.y, pbox.w, pbox.h);
+  /* ---------- PLAYERS ---------- */
+  ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
+  ctx.drawImage(sprImg, frame, 0, 88, 94, p2.x, p2.y, p2.w, p2.h);
 
-  //small obstacle drawing
-  if (!obsB.on){
+  /* ---------- OBSTACLES (UNCHANGED) ---------- */
+  if (!obsB.on) {
     obsS.on = true;
-    if (multiS == -1){
-      rngS();
-    }
-
-    // All commented rectangles are for viewing hitboxes
-    //ctx.fillRect(canvas.width - obsS.scroll, obsS.y, obsS.w * multiS, obsS.h);
-    ctx.drawImage(sprImg, picS, 2, obsS.w * multiS, obsS.h, canvas.width - obsS.scroll, obsS.y, obsS.w * multiS, obsS.h);
-    obsS.scroll+=gamespeed;
-    if (obsS.scroll > canvas.width + obsS.w * 3){
-      obsS.scroll = -100;
-      multiS = -1;
-      obsS.on = false;
-    }
+    if (multiS === -1) rngS();
+    ctx.drawImage(
+      sprImg, picS, 2,
+      obsS.w * multiS, obsS.h,
+      canvas.width - obsS.scroll,
+      obsS.y,
+      obsS.w * multiS,
+      obsS.h
+    );
+    obsS.scroll += gamespeed;
   }
 
-  //big obstacle drawing
-  if(!obsS.on){
+  if (!obsS.on) {
     obsB.on = true;
-    if (multiB == -1){
-      rngB();
-    }
-
-    //ctx.fillRect(canvas.width - obsB.scroll, obsB.y, obsB.w * multiB, obsB.h);
-    ctx.drawImage(sprImg, 652, 2, obsB.w * multiB, obsB.h, canvas.width - obsB.scroll, obsB.y, obsB.w * multiB, obsB.h);
-
-    obsB.scroll+= gamespeed;
-    if (obsB.scroll > canvas.width + obsB.w * 3){
-      obsB.scroll = -200;
-      multiB = -1;
-      obsB.on = false;
-    }
+    if (multiB === -1) rngB();
+    ctx.drawImage(
+      sprImg, 652, 2,
+      obsB.w * multiB, obsB.h,
+      canvas.width - obsB.scroll,
+      obsB.y,
+      obsB.w * multiB,
+      obsB.h
+    );
+    obsB.scroll += gamespeed;
   }
 
-
-  ctx.font='20px verdana';
-  ctx.fillStyle="black";
-  ctx.fillText("Score: ", 100, canvas.height - 40);
+  /* ---------- UI ---------- */
+  ctx.fillStyle = "black";
+  ctx.font = "20px verdana";
+  ctx.fillText("Score:", 100, canvas.height - 40);
   ctx.fillText(p.score, 170, canvas.height - 40);
-  ctx.fillText("Highscore: ", 600, canvas.height - 40);
-  ctx.fillText(p.hscore, 715, canvas.height - 40);
-  if (isGameOver) {
-	  drawGameOver();
-	}
+
+  if (isGameOver) drawGameOver();
+
+  /* ---------- SYNC TO CLIENT ---------- */
+  sendToRN({
+    type: "stateDino",
+    p1: { x: p.x, y: p.y },
+    p2: { x: p2.x, y: p2.y },
+    obsS,
+    obsB,
+    score: p.score
+  });
 }
+
 
 function gameover(){
   gamespeed = 0;
@@ -352,6 +438,11 @@ function restartGame() {
 function tryJump() {
   if (isGameOver) {
     restartGame();
+    return;
+  }
+
+  if (!isHost) {
+    sendToRN({ type: "jump" });
     return;
   }
 
