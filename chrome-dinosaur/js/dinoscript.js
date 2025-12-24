@@ -122,10 +122,7 @@ window.onRNMessage = function (msg) {
     return;
   }
 
-  if (msg.type === "jump" && isHost) {
-    p2.yv = -p2.jump;
-    return;
-  }
+
 
   if (msg.type === "stateDino" && !isHost) {
     const s = msg.state;
@@ -157,6 +154,23 @@ window.onRNMessage = function (msg) {
 
 
 
+window.onPeerMessage = (msg) => {
+  if (!isHost) return;
+
+  if (msg.type === "jump") {
+    if (msg.player === "A") {
+      if (p.y >= groundY) {
+        p.yv = -p.jump;
+      }
+    }
+
+    if (msg.player === "B") {
+      if (p2.y >= groundY) {
+        p2.yv = -p2.jump;
+      }
+    }
+  }
+};
 
 
 
@@ -472,7 +486,11 @@ function tryJump() {
   }
 
   if (!isHost) {
-    sendToRN({ type: "jump" });
+    sendToRN({
+      type: "jump",
+      player: playerRole
+    });
+
     return;
   }
 
