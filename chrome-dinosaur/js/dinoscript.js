@@ -24,7 +24,9 @@ obsS = ({
   w: 34,
   h: 70,
   scroll: -100,
-  on: false
+  on: false,
+  multi: -1,
+  pic: 0
 })
 
 multiB = -1;
@@ -35,7 +37,9 @@ obsB = ({
   w: 49,
   h: 100,
   scroll: -200,
-  on: false
+  on: false,
+  multi: -1,
+  pic: 0
 })
 
 // for flying objects if they would be added in the future
@@ -377,7 +381,15 @@ function update() {
 
   // OBSTACLES
   if (obsS.on) {
-    ctx.drawImage(sprImg, picS, 2, obsS.w * multiS, obsS.h, canvas.width - obsS.scroll, obsS.y, obsS.w * multiS, obsS.h);
+    ctx.drawImage(
+      sprImg,
+      obsS.pic, 2,
+      obsS.w * obsS.multi, obsS.h,
+      canvas.width - obsS.scroll,
+      obsS.y,
+      obsS.w * obsS.multi,
+      obsS.h
+    );
   }
   if (obsB.on) {
     ctx.drawImage(sprImg, 652, 2, obsB.w * multiB, obsB.h, canvas.width - obsB.scroll, obsB.y, obsB.w * multiB, obsB.h);
@@ -395,8 +407,8 @@ function update() {
     type: "stateDino",
     p1: { x: p.x, y: p.y, yv: p.yv },
     p2: { x: p2.x, y: p2.y, yv: p2.yv },
-    obsS: { ...obsS },
-    obsB: { ...obsB },
+    obsS,
+    obsB,
     groundscroll,
     frame,
     gamespeed,
@@ -475,16 +487,17 @@ function tryJump() {
   }
 }
 
-function rngS(){
-  multiS = Math.floor(Math.random() * 3) + 1; // type
-  picS = 446 + (Math.floor(Math.random() * 2) * 102); // sprite
-  obsS.y = plat.y - obsS.h; // place on ground
-  obsS.scroll = -obsS.w * multiS; // spawn outside canvas
+function rngS() {
+  obsS.multi = Math.floor(Math.random() * 3) + 1;
+  obsS.pic = 446 + (Math.floor(Math.random() * 2) * 102);
+  obsS.y = plat.y - obsS.h;
+  obsS.scroll = -obsS.w * obsS.multi;
 }
 
-function rngB(){
-  multiB = Math.floor(Math.random() * 3) + 1; // type
-  picB = 652 + (Math.floor(Math.random() * 2) * 150); // sprite
-  obsB.y = plat.y - obsB.h; // place on ground
-  obsB.scroll = -obsB.w * multiB; // spawn outside canvas
+
+function rngB() {
+  obsB.multi = Math.floor(Math.random() * 3) + 1;
+  obsB.pic = 652 + (Math.floor(Math.random() * 2) * 150);
+  obsB.y = plat.y - obsB.h;
+  obsB.scroll = -obsB.w * obsB.multi;
 }
