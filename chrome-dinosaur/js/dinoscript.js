@@ -125,9 +125,8 @@ window.onRNMessage = function (msg) {
 
 
   if (msg.type === "stateDino" && !isHost) {
-    const s = msg.state;
+    const s = msg;
 
-    // players
     p.x = s.p1.x;
     p.y = s.p1.y;
     p.yv = s.p1.yv;
@@ -136,11 +135,15 @@ window.onRNMessage = function (msg) {
     p2.y = s.p2.y;
     p2.yv = s.p2.yv;
 
-    // obstacles
     obsS = s.obsS;
     obsB = s.obsB;
 
-    // world
+    multiS = obsS.multi;
+    picS = obsS.pic;
+
+    multiB = obsB.multi;
+    picB = obsB.pic;
+
     groundscroll = s.groundscroll;
     frame = s.frame;
     gamespeed = s.gamespeed;
@@ -148,6 +151,7 @@ window.onRNMessage = function (msg) {
     p.score = s.score;
     isGameOver = s.isGameOver;
   }
+
 
 
 };
@@ -243,24 +247,32 @@ function drawOnly() {
   // ground
   ctx.drawImage(sprImg, 0, 104, 2404, 18, 0, plat.y - 24, 2404, 18);
 
-  // obstacles
-  ctx.drawImage(
-    sprImg, picS, 2,
-    obsS.w * multiS, obsS.h,
-    canvas.width - obsS.scroll,
-    obsS.y,
-    obsS.w * multiS,
-    obsS.h
-  );
+  // SMALL CACTUS
+  if (obsS.on && multiS > 0) {
+    ctx.drawImage(
+      sprImg,
+      picS, 2,
+      obsS.w * multiS, obsS.h,
+      canvas.width - obsS.scroll,
+      obsS.y,
+      obsS.w * multiS,
+      obsS.h
+    );
+  }
 
-  ctx.drawImage(
-    sprImg, 652, 2,
-    obsB.w * multiB, obsB.h,
-    canvas.width - obsB.scroll,
-    obsB.y,
-    obsB.w * multiB,
-    obsB.h
-  );
+  // BIG CACTUS
+  if (obsB.on && multiB > 0) {
+    ctx.drawImage(
+      sprImg,
+      picB, 2,
+      obsB.w * multiB, obsB.h,
+      canvas.width - obsB.scroll,
+      obsB.y,
+      obsB.w * multiB,
+      obsB.h
+    );
+  }
+
 
   // players
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -395,8 +407,18 @@ function update() {
     type: "stateDino",
     p1: { x: p.x, y: p.y, yv: p.yv },
     p2: { x: p2.x, y: p2.y, yv: p2.yv },
-    obsS: { ...obsS },
-    obsB: { ...obsB },
+    obsS: {
+      ...obsS,
+      multi: multiS,
+      pic: picS
+    },
+
+    obsB: {
+      ...obsB,
+      multi: multiB,
+      pic: picB
+    },
+
     groundscroll,
     frame,
     gamespeed,
