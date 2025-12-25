@@ -245,26 +245,44 @@ function drawOnly() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // ground
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0, plat.y - 24, 2404, 18);
+  ctx.drawImage(
+    sprImg, 0, 104, 2404, 18,
+    -groundscroll,
+    plat.y - 24,
+    2404, 18
+  );
+
+  ctx.drawImage(
+    sprImg, 0, 104, 2404, 18,
+    2404 - groundscroll,
+    plat.y - 24,
+    2404, 18
+  );
 
   // obstacles
-  ctx.drawImage(
-    sprImg, picS, 2,
-    obsS.w * multiS, obsS.h,
-    canvas.width - obsS.scroll,
-    obsS.y,
-    obsS.w * multiS,
-    obsS.h
-  );
+  if (obsS.on) {
+    ctx.drawImage(
+      sprImg,
+      obsS.pic, 2,
+      obsS.w * obsS.multi, obsS.h,
+      canvas.width - obsS.scroll,
+      obsS.y,
+      obsS.w * obsS.multi,
+      obsS.h
+    );
+  }
 
-  ctx.drawImage(
-    sprImg, 652, 2,
-    obsB.w * multiB, obsB.h,
-    canvas.width - obsB.scroll,
-    obsB.y,
-    obsB.w * multiB,
-    obsB.h
-  );
+  if (obsB.on) {
+    ctx.drawImage(
+      sprImg,
+      obsB.pic, 2,
+      obsB.w * obsB.multi, obsB.h,
+      canvas.width - obsB.scroll,
+      obsB.y,
+      obsB.w * obsB.multi,
+      obsB.h
+    );
+  }
 
   // players
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -311,18 +329,18 @@ function update() {
   /* ---------- COLLISION ---------- */
   const hitBig =
     (pbox.x > (canvas.width - obsB.scroll) - p.w &&
-      pbox.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
+      pbox.x < (canvas.width - obsB.scroll) + (obsB.w * obsB.multi) &&
       pbox.y > obsB.y - pbox.h) ||
     (p2box.x > (canvas.width - obsB.scroll) - p2.w &&
-      p2box.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
+      p2box.x < (canvas.width - obsB.scroll) + (obsB.w * obsB.multi) &&
       p2box.y > obsB.y - p2box.h);
 
   const hitSmall =
     (pbox.x > (canvas.width - obsS.scroll) - p.w &&
-      pbox.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
+      pbox.x < (canvas.width - obsS.scroll) + (obsS.w * obsS.multi) &&
       pbox.y > obsS.y - pbox.h) ||
     (p2box.x > (canvas.width - obsS.scroll) - p2.w &&
-      p2box.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
+      p2box.x < (canvas.width - obsS.scroll) + (obsS.w * obsS.multi) &&
       p2box.y > obsS.y - p2box.h);
 
   if (hitBig || hitSmall) gameover();
@@ -345,17 +363,17 @@ function update() {
   // update scroll and deactivate when off-screen
   if (obsS.on) {
     obsS.scroll += gamespeed;
-    if (obsS.scroll > canvas.width + obsS.w * multiS) {
+    if (obsS.scroll > canvas.width + obsS.w * obsS.multi) {
       obsS.on = false;
-      multiS = -1;
+      
     }
   }
 
   if (obsB.on) {
     obsB.scroll += gamespeed;
-    if (obsB.scroll > canvas.width + obsB.w * multiB) {
+    if (obsB.scroll > canvas.width + obsB.w * obsB.multi) {
       obsB.on = false;
-      multiB = -1;
+    
     }
   }
 
@@ -372,8 +390,23 @@ function update() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // GROUND
+
   groundscroll += gamespeed;
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
+  if (groundscroll >= 2404) groundscroll = 0;
+
+  ctx.drawImage(
+    sprImg, 0, 104, 2404, 18,
+    -groundscroll,
+    plat.y - 24,
+    2404, 18
+  );
+
+  ctx.drawImage(
+    sprImg, 0, 104, 2404, 18,
+    2404 - groundscroll,
+    plat.y - 24,
+    2404, 18
+  );
 
   // PLAYERS
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -392,7 +425,16 @@ function update() {
     );
   }
   if (obsB.on) {
-    ctx.drawImage(sprImg, 652, 2, obsB.w * multiB, obsB.h, canvas.width - obsB.scroll, obsB.y, obsB.w * multiB, obsB.h);
+    ctx.drawImage(
+      sprImg,
+      obsB.pic, 2,
+      obsB.w * obsB.multi, obsB.h,
+      canvas.width - obsB.scroll,
+      obsB.y,
+      obsB.w * obsB.multi,
+      obsB.h
+    );
+
   }
 
   /* ---------- UI ---------- */
@@ -405,16 +447,19 @@ function update() {
   /* ---------- SYNC TO CLIENT ---------- */
   sendToRN({
     type: "stateDino",
-    p1: { x: p.x, y: p.y, yv: p.yv },
-    p2: { x: p2.x, y: p2.y, yv: p2.yv },
-    obsS,
-    obsB,
-    groundscroll,
-    frame,
-    gamespeed,
-    score: p.score,
-    isGameOver
+    state: {
+      p1: { x: p.x, y: p.y, yv: p.yv },
+      p2: { x: p2.x, y: p2.y, yv: p2.yv },
+      obsS,
+      obsB,
+      groundscroll,
+      frame,
+      gamespeed,
+      score: p.score,
+      isGameOver
+    }
   });
+
 }
 
 
