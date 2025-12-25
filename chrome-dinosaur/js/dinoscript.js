@@ -286,7 +286,7 @@ function update() {
   if (!isHost && mode === "game") {
     drawOnly();
     if (isGameOver) drawGameOver();
-    return;
+   
   }
 
   /* ---------- PLAYER PHYSICS ---------- */
