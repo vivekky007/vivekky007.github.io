@@ -393,17 +393,15 @@ function update() {
   /* ---------- SYNC TO CLIENT ---------- */
   sendToRN({
     type: "stateDino",
-    state: {
-      p1: { x: p.x, y: p.y, yv: p.yv },
-      p2: { x: p2.x, y: p2.y, yv: p2.yv },
-      obsS,
-      obsB,
-      groundscroll,
-      frame,
-      gamespeed,
-      score: p.score,
-      isGameOver
-    }
+    p1: { x: p.x, y: p.y, yv: p.yv },
+    p2: { x: p2.x, y: p2.y, yv: p2.yv },
+    obsS: { ...obsS },
+    obsB: { ...obsB },
+    groundscroll,
+    frame,
+    gamespeed,
+    score: p.score,
+    isGameOver
   });
 }
 
