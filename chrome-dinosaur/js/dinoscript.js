@@ -1,4 +1,5 @@
 
+
 //char = 89x94
 //char 1 @ 1514
 //char 2 @ 1603
@@ -12,6 +13,8 @@ groundbool = false;
 frame = 0;
 bool = false;
 grav = 0.6;
+let isHost = false;
+let playerRole = null;
 
 gamespeed = 0;
 let onG2 = false;
