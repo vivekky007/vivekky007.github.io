@@ -16,8 +16,7 @@ grav = 0.6;
 gamespeed = 0;
 let onG2 = false;
 
-multiS = -1;
-picS = 0;
+
 obsS = ({
   x: 20,
   y: 230,
@@ -27,8 +26,7 @@ obsS = ({
   on: false
 })
 
-multiB = -1;
-picB = 0;
+
 obsB = ({
   x: 20,
   y: 201,
@@ -258,24 +256,35 @@ function drawOnly() {
   );
 
 
-  // obstacles
-  ctx.drawImage(
-    sprImg, picS, 2,
-    obsS.w * multiS, obsS.h,
-    canvas.width - obsS.scroll,
-    obsS.y,
-    obsS.w * multiS,
-    obsS.h
-  );
+  if (obsS.on) {
+    ctx.drawImage(
+      sprImg,
+      obsS.pic,
+      2,
+      obsS.w * obsS.multi,
+      obsS.h,
+      canvas.width - obsS.scroll,
+      obsS.y,
+      obsS.w * obsS.multi,
+      obsS.h
+    );
+  }
 
-  ctx.drawImage(
-    sprImg, 652, 2,
-    obsB.w * multiB, obsB.h,
-    canvas.width - obsB.scroll,
-    obsB.y,
-    obsB.w * multiB,
-    obsB.h
-  );
+  if (obsB.on) {
+    ctx.drawImage(
+      sprImg,
+      obsB.pic,
+      2,
+      obsB.w * obsB.multi,
+      obsB.h,
+      canvas.width - obsB.scroll,
+      obsB.y,
+      obsB.w * obsB.multi,
+      obsB.h
+    );
+  }
+
+
 
   // players
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -327,16 +336,17 @@ function update() {
   const cactusBX = canvas.width - obsB.scroll;
   /* ---------- COLLISION ---------- */
   const hitBig = obsB.on && (
-    (pbox.x + pbox.w > cactusBX &&
-    pbox.x < cactusBX + obsB.w * multiB &&
-    pbox.y + pbox.h > obsB.y)
+    pbox.x + pbox.w > cactusBX &&
+    pbox.x < cactusBX + obsB.w * obsB.multi &&
+    pbox.y + pbox.h > obsB.y
   );
 
   const hitSmall = obsS.on && (
-    (pbox.x + pbox.w > cactusSX &&
-    pbox.x < cactusSX + obsS.w * multiS &&
-    pbox.y + pbox.h > obsS.y)
+    pbox.x + pbox.w > cactusSX &&
+    pbox.x < cactusSX + obsS.w * obsS.multi &&
+    pbox.y + pbox.h > obsS.y
   );
+
 
 
   if (hitBig || hitSmall) gameover();
@@ -359,19 +369,18 @@ function update() {
   // update scroll and deactivate when off-screen
   if (obsS.on) {
     obsS.scroll += gamespeed;
-    if (obsS.scroll > canvas.width + obsS.w * multiS) {
+    if (obsS.scroll > canvas.width + obsS.w * obsS.multi) {
       obsS.on = false;
-      multiS = -1;
     }
   }
 
   if (obsB.on) {
     obsB.scroll += gamespeed;
-    if (obsB.scroll > canvas.width + obsB.w * multiB) {
+    if (obsB.scroll > canvas.width + obsB.w * obsB.multi) {
       obsB.on = false;
-      multiB = -1;
     }
   }
+
 
 
   /* ---------- ANIMATION ---------- */
@@ -459,8 +468,8 @@ function gameover() {
   groundscroll2 = 0;
   tempstart = 0;
   groundbool = false;
-  multiS = -1;
-  multiB = -1;
+ 
+
 }
 function restartGame() {
   isGameOver = false;
@@ -480,8 +489,6 @@ function restartGame() {
   tempstart = 0;
   groundbool = false;
 
-  multiS = -1;
-  multiB = -1;
 }
 
 
@@ -511,15 +518,17 @@ function tryJump() {
 }
 
 function rngS(){
-  multiS = Math.floor(Math.random() * 3) + 1; // type
-  picS = 446 + (Math.floor(Math.random() * 2) * 102); // sprite
-  obsS.y = plat.y - obsS.h; // place on ground
-  obsS.scroll = -obsS.w * multiS; // spawn outside canvas
+  obsS.multi = Math.floor(Math.random() * 3) + 1;
+  obsS.pic   = 446 + (Math.floor(Math.random() * 2) * 102);
+  obsS.y     = plat.y - obsS.h;
+  obsS.scroll = -obsS.w * obsS.multi;
+  obsS.on = true;
 }
 
 function rngB(){
-  multiB = Math.floor(Math.random() * 3) + 1; // type
-  picB = 652 + (Math.floor(Math.random() * 2) * 150); // sprite
-  obsB.y = plat.y - obsB.h; // place on ground
-  obsB.scroll = -obsB.w * multiB; // spawn outside canvas
+  obsB.multi = Math.floor(Math.random() * 3) + 1;
+  obsB.pic   = 652 + (Math.floor(Math.random() * 2) * 150);
+  obsB.y     = plat.y - obsB.h;
+  obsB.scroll = -obsB.w * obsB.multi;
+  obsB.on = true;
 }
