@@ -369,21 +369,7 @@ function update() {
 
   // GROUND
   groundscroll += gamespeed;
-  if (groundscroll >= 2404) groundscroll = 0;
-
-  ctx.drawImage(
-    sprImg, 0, 104, 2404, 18,
-    -groundscroll,
-    plat.y - 24,
-    2404, 18
-  );
-
-  ctx.drawImage(
-    sprImg, 0, 104, 2404, 18,
-    2404 - groundscroll,
-    plat.y - 24,
-    2404, 18
-  );
+  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
 
   // PLAYERS
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -407,17 +393,15 @@ function update() {
   /* ---------- SYNC TO CLIENT ---------- */
   sendToRN({
     type: "stateDino",
-    state: {
-      p1: { x: p.x, y: p.y, yv: p.yv },
-      p2: { x: p2.x, y: p2.y, yv: p2.yv },
-      obsS,
-      obsB,
-      groundscroll,
-      frame,
-      gamespeed,
-      score: p.score,
-      isGameOver
-    }
+    p1: { x: p.x, y: p.y, yv: p.yv },
+    p2: { x: p2.x, y: p2.y, yv: p2.yv },
+    obsS: { ...obsS },
+    obsB: { ...obsB },
+    groundscroll,
+    frame,
+    gamespeed,
+    score: p.score,
+    isGameOver
   });
 }
 
