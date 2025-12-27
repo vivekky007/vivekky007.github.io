@@ -323,7 +323,8 @@ function update() {
 
   p2box.x = p2.x;
   p2box.y = p2.y;
-
+  const cactusSX = canvas.width - obsS.scroll;  
+  const cactusBX = canvas.width - obsB.scroll;
   /* ---------- COLLISION ---------- */
   const hitBig = obsB.on && (
     (pbox.x + pbox.w > cactusBX &&
