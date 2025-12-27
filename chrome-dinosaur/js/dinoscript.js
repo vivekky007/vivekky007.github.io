@@ -16,7 +16,8 @@ grav = 0.6;
 gamespeed = 0;
 let onG2 = false;
 
-
+multiS = -1;
+picS = 0;
 obsS = ({
   x: 20,
   y: 230,
@@ -26,7 +27,8 @@ obsS = ({
   on: false
 })
 
-
+multiB = -1;
+picB = 0;
 obsB = ({
   x: 20,
   y: 201,
@@ -134,9 +136,9 @@ window.onRNMessage = function (msg) {
     p2.y = s.p2.y;
     p2.yv = s.p2.yv;
 
-        // obstacles
-    Object.assign(obsS, s.obsS);
-    Object.assign(obsB, s.obsB);
+    // obstacles
+    obsS = s.obsS;
+    obsB = s.obsB;
 
     // world
     groundscroll = s.groundscroll;
@@ -239,52 +241,26 @@ function drawOnly() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // ground
-  groundscroll = groundscroll % 2404;
+  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0, plat.y - 24, 2404, 18);
 
+  // obstacles
   ctx.drawImage(
-    sprImg, 0, 104, 2404, 18,
-    -groundscroll,
-    plat.y - 24,
-    2404, 18
+    sprImg, picS, 2,
+    obsS.w * multiS, obsS.h,
+    canvas.width - obsS.scroll,
+    obsS.y,
+    obsS.w * multiS,
+    obsS.h
   );
 
   ctx.drawImage(
-    sprImg, 0, 104, 2404, 18,
-    -groundscroll + 2404,
-    plat.y - 24,
-    2404, 18
+    sprImg, 652, 2,
+    obsB.w * multiB, obsB.h,
+    canvas.width - obsB.scroll,
+    obsB.y,
+    obsB.w * multiB,
+    obsB.h
   );
-
-
-  if (obsS.on) {
-    ctx.drawImage(
-      sprImg,
-      obsS.pic,
-      2,
-      obsS.w * obsS.multi,
-      obsS.h,
-      canvas.width - obsS.scroll,
-      obsS.y,
-      obsS.w * obsS.multi,
-      obsS.h
-    );
-  }
-
-  if (obsB.on) {
-    ctx.drawImage(
-      sprImg,
-      obsB.pic,
-      2,
-      obsB.w * obsB.multi,
-      obsB.h,
-      canvas.width - obsB.scroll,
-      obsB.y,
-      obsB.w * obsB.multi,
-      obsB.h
-    );
-  }
-
-
 
   // players
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -327,27 +303,23 @@ function update() {
 
   if (p.y + p.h > plat.y) { p.y = plat.y - p.h; onG = true; }
   if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h; onG2 = true; }
-  pbox.x = p.x;
-  pbox.y = p.y;
 
-  p2box.x = p2.x;
-  p2box.y = p2.y;
-  const cactusSX = canvas.width - obsS.scroll;  
-  const cactusBX = canvas.width - obsB.scroll;
   /* ---------- COLLISION ---------- */
-  const hitBig = obsB.on && (
-    pbox.x + pbox.w > cactusBX &&
-    pbox.x < cactusBX + obsB.w * obsB.multi &&
-    pbox.y + pbox.h > obsB.y
-  );
+  const hitBig =
+    (pbox.x > (canvas.width - obsB.scroll) - p.w &&
+      pbox.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
+      pbox.y > obsB.y - pbox.h) ||
+    (p2box.x > (canvas.width - obsB.scroll) - p2.w &&
+      p2box.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
+      p2box.y > obsB.y - p2box.h);
 
-  const hitSmall = obsS.on && (
-    pbox.x + pbox.w > cactusSX &&
-    pbox.x < cactusSX + obsS.w * obsS.multi &&
-    pbox.y + pbox.h > obsS.y
-  );
-
-
+  const hitSmall =
+    (pbox.x > (canvas.width - obsS.scroll) - p.w &&
+      pbox.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
+      pbox.y > obsS.y - pbox.h) ||
+    (p2box.x > (canvas.width - obsS.scroll) - p2.w &&
+      p2box.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
+      p2box.y > obsS.y - p2box.h);
 
   if (hitBig || hitSmall) gameover();
 
@@ -369,18 +341,19 @@ function update() {
   // update scroll and deactivate when off-screen
   if (obsS.on) {
     obsS.scroll += gamespeed;
-    if (obsS.scroll > canvas.width + obsS.w * obsS.multi) {
+    if (obsS.scroll > canvas.width + obsS.w * multiS) {
       obsS.on = false;
+      multiS = -1;
     }
   }
 
   if (obsB.on) {
     obsB.scroll += gamespeed;
-    if (obsB.scroll > canvas.width + obsB.w * obsB.multi) {
+    if (obsB.scroll > canvas.width + obsB.w * multiB) {
       obsB.on = false;
+      multiB = -1;
     }
   }
-
 
 
   /* ---------- ANIMATION ---------- */
@@ -395,22 +368,8 @@ function update() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // GROUND
-  groundscroll = (groundscroll + gamespeed) % 2404;
-
-  ctx.drawImage(
-    sprImg, 0, 104, 2404, 18,
-    -groundscroll,
-    plat.y - 24,
-    2404, 18
-  );
-
-  ctx.drawImage(
-    sprImg, 0, 104, 2404, 18,
-    -groundscroll + 2404,
-    plat.y - 24,
-    2404, 18
-  );
-
+  groundscroll += gamespeed;
+  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
 
   // PLAYERS
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -434,19 +393,16 @@ function update() {
   /* ---------- SYNC TO CLIENT ---------- */
   sendToRN({
     type: "stateDino",
-    state: {
-      p1: { x: p.x, y: p.y, yv: p.yv },
-      p2: { x: p2.x, y: p2.y, yv: p2.yv },
-      obsS: { ...obsS },
-      obsB: { ...obsB },
-      groundscroll,
-      frame,
-      gamespeed,
-      score: p.score,
-      isGameOver
-    }
+    p1: { x: p.x, y: p.y, yv: p.yv },
+    p2: { x: p2.x, y: p2.y, yv: p2.yv },
+    obsS: { ...obsS },
+    obsB: { ...obsB },
+    groundscroll,
+    frame,
+    gamespeed,
+    score: p.score,
+    isGameOver
   });
-
 }
 
 
@@ -468,8 +424,8 @@ function gameover() {
   groundscroll2 = 0;
   tempstart = 0;
   groundbool = false;
- 
-
+  multiS = -1;
+  multiB = -1;
 }
 function restartGame() {
   isGameOver = false;
@@ -489,6 +445,8 @@ function restartGame() {
   tempstart = 0;
   groundbool = false;
 
+  multiS = -1;
+  multiB = -1;
 }
 
 
@@ -518,17 +476,15 @@ function tryJump() {
 }
 
 function rngS(){
-  obsS.multi = Math.floor(Math.random() * 3) + 1;
-  obsS.pic   = 446 + (Math.floor(Math.random() * 2) * 102);
-  obsS.y     = plat.y - obsS.h;
-  obsS.scroll = -obsS.w * obsS.multi;
-  obsS.on = true;
+  multiS = Math.floor(Math.random() * 3) + 1; // type
+  picS = 446 + (Math.floor(Math.random() * 2) * 102); // sprite
+  obsS.y = plat.y - obsS.h; // place on ground
+  obsS.scroll = -obsS.w * multiS; // spawn outside canvas
 }
 
 function rngB(){
-  obsB.multi = Math.floor(Math.random() * 3) + 1;
-  obsB.pic   = 652 + (Math.floor(Math.random() * 2) * 150);
-  obsB.y     = plat.y - obsB.h;
-  obsB.scroll = -obsB.w * obsB.multi;
-  obsB.on = true;
+  multiB = Math.floor(Math.random() * 3) + 1; // type
+  picB = 652 + (Math.floor(Math.random() * 2) * 150); // sprite
+  obsB.y = plat.y - obsB.h; // place on ground
+  obsB.scroll = -obsB.w * multiB; // spawn outside canvas
 }
