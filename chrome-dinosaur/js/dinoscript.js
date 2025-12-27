@@ -136,9 +136,9 @@ window.onRNMessage = function (msg) {
     p2.y = s.p2.y;
     p2.yv = s.p2.yv;
 
-    // obstacles
-    obsS = s.obsS;
-    obsB = s.obsB;
+        // obstacles
+    Object.assign(obsS, s.obsS);
+    Object.assign(obsB, s.obsB);
 
     // world
     groundscroll = s.groundscroll;
@@ -241,7 +241,22 @@ function drawOnly() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // ground
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0, plat.y - 24, 2404, 18);
+  groundscroll = groundscroll % 2404;
+
+  ctx.drawImage(
+    sprImg, 0, 104, 2404, 18,
+    -groundscroll,
+    plat.y - 24,
+    2404, 18
+  );
+
+  ctx.drawImage(
+    sprImg, 0, 104, 2404, 18,
+    -groundscroll + 2404,
+    plat.y - 24,
+    2404, 18
+  );
+
 
   // obstacles
   ctx.drawImage(
@@ -303,23 +318,25 @@ function update() {
 
   if (p.y + p.h > plat.y) { p.y = plat.y - p.h; onG = true; }
   if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h; onG2 = true; }
+  pbox.x = p.x;
+  pbox.y = p.y;
+
+  p2box.x = p2.x;
+  p2box.y = p2.y;
 
   /* ---------- COLLISION ---------- */
-  const hitBig =
-    (pbox.x > (canvas.width - obsB.scroll) - p.w &&
-      pbox.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
-      pbox.y > obsB.y - pbox.h) ||
-    (p2box.x > (canvas.width - obsB.scroll) - p2.w &&
-      p2box.x < (canvas.width - obsB.scroll) + (obsB.w * multiB) &&
-      p2box.y > obsB.y - p2box.h);
+  const hitBig = obsB.on && (
+    (pbox.x + pbox.w > cactusBX &&
+    pbox.x < cactusBX + obsB.w * multiB &&
+    pbox.y + pbox.h > obsB.y)
+  );
 
-  const hitSmall =
-    (pbox.x > (canvas.width - obsS.scroll) - p.w &&
-      pbox.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
-      pbox.y > obsS.y - pbox.h) ||
-    (p2box.x > (canvas.width - obsS.scroll) - p2.w &&
-      p2box.x < (canvas.width - obsS.scroll) + (obsS.w * multiS) &&
-      p2box.y > obsS.y - p2box.h);
+  const hitSmall = obsS.on && (
+    (pbox.x + pbox.w > cactusSX &&
+    pbox.x < cactusSX + obsS.w * multiS &&
+    pbox.y + pbox.h > obsS.y)
+  );
+
 
   if (hitBig || hitSmall) gameover();
 
@@ -368,8 +385,22 @@ function update() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // GROUND
-  groundscroll += gamespeed;
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
+  groundscroll = (groundscroll + gamespeed) % 2404;
+
+  ctx.drawImage(
+    sprImg, 0, 104, 2404, 18,
+    -groundscroll,
+    plat.y - 24,
+    2404, 18
+  );
+
+  ctx.drawImage(
+    sprImg, 0, 104, 2404, 18,
+    -groundscroll + 2404,
+    plat.y - 24,
+    2404, 18
+  );
+
 
   // PLAYERS
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -393,16 +424,19 @@ function update() {
   /* ---------- SYNC TO CLIENT ---------- */
   sendToRN({
     type: "stateDino",
-    p1: { x: p.x, y: p.y, yv: p.yv },
-    p2: { x: p2.x, y: p2.y, yv: p2.yv },
-    obsS: { ...obsS },
-    obsB: { ...obsB },
-    groundscroll,
-    frame,
-    gamespeed,
-    score: p.score,
-    isGameOver
+    state: {
+      p1: { x: p.x, y: p.y, yv: p.yv },
+      p2: { x: p2.x, y: p2.y, yv: p2.yv },
+      obsS: { ...obsS },
+      obsB: { ...obsB },
+      groundscroll,
+      frame,
+      gamespeed,
+      score: p.score,
+      isGameOver
+    }
   });
+
 }
 
 
