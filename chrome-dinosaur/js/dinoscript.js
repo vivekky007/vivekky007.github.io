@@ -13,7 +13,7 @@ frame = 0;
 bool = false;
 grav = 0.6;
 let jumpReqP1 = false;
-let jumpReqP2 = false;
+let jumpReqP2 = 0;
 gamespeed = 0;
 let onG = false;
 let onG2 = false;
@@ -168,7 +168,7 @@ window.onPeerMessage = (msg) => {
 
   if (msg.type === "jump") {
     if (msg.player === "A") jumpReqP1 = true;
-    if (msg.player === "B") jumpReqP2 = true;
+    if (msg.player === "B") jumpReqP2 = 0;
   }
 };
 
@@ -328,8 +328,8 @@ function update() {
   onG = false;
   onG2 = false;
 
-  if (p.y + p.h > plat.y) { p.y = plat.y - p.h; p.yv = 0;onG = true; }
-  if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h; p2.yv = 0;onG2 = true; }
+  if (p.y + p.h > plat.y) { p.y = plat.y - p.h;p.yv = 0;   onG = true; }
+  if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h;p2.yv = 0;   onG2 = true; }
 
     /* ---------- APPLY JUMP REQUESTS ---------- */
   if (jumpReqP1 && onG) {
@@ -337,10 +337,14 @@ function update() {
     jumpReqP1 = false;
   }
 
-  if (jumpReqP2 && onG2) {
+
+  if (jumpReqP2 > 0 && onG2) {
     p2.yv = -p2.jump;
-    jumpReqP2 = false;
+    jumpReqP2 = 0;
   }
+
+  
+  if (jumpReqP2 > 0) jumpReqP2--;
 
 
   /* ---------- COLLISION ---------- */
