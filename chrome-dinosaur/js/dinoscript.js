@@ -13,7 +13,7 @@ frame = 0;
 bool = false;
 grav = 0.6;
 let jumpReqP1 = false;
-let jumpReqP2 = 0;
+let jumpReqP2 = false;
 gamespeed = 0;
 let onG = false;
 let onG2 = false;
@@ -168,7 +168,7 @@ window.onPeerMessage = (msg) => {
 
   if (msg.type === "jump") {
     if (msg.player === "A") jumpReqP1 = true;
-    if (msg.player === "B") jumpReqP2 = 0;
+    if (msg.player === "B") jumpReqP2 = true;
   }
 };
 
@@ -338,13 +338,13 @@ function update() {
   }
 
 
-  if (jumpReqP2 > 0 && onG2) {
+  if (jumpReqP2 && onG2) {
     p2.yv = -p2.jump;
-    jumpReqP2 = 0;
+    jumpReqP2 = false;
   }
 
   
-  if (jumpReqP2 > 0) jumpReqP2--;
+  
 
 
   /* ---------- COLLISION ---------- */
