@@ -240,8 +240,24 @@ function drawOnly() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // ground
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0, plat.y - 24, 2404, 18);
+  if (obsS.on) {
+    obsS.scroll += gamespeed;
+    if (obsS.scroll > canvas.width + obsS.w * multiS) {
+      obsS.on = false;
+      multiS = -1;
+    }
+  }
+
+  if (obsB.on) {
+    obsB.scroll += gamespeed;
+    if (obsB.scroll > canvas.width + obsB.w * multiB) {
+      obsB.on = false;
+      multiB = -1;
+    }
+  }
+
+  groundscroll += gamespeed;
+  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
 
   // obstacles
   ctx.drawImage(
@@ -322,8 +338,6 @@ function update() {
       p2box.y > obsS.y - p2box.h);
 
   if (hitBig || hitSmall) gameover();
-
-  /* ---------- OBSTACLES HOST LOGIC ---------- */
 
 /* ---------- OBSTACLES HOST LOGIC ---------- */
   if (!obsS.on && !obsB.on) {
