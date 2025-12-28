@@ -257,7 +257,26 @@ function drawOnly() {
   }
 
   groundscroll += gamespeed;
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
+  if (groundscroll >= 2404) {
+    groundscroll = 0;
+  }
+  ctx.drawImage(
+    sprImg,
+    0, 104, 2404, 18,
+    -groundscroll,
+    plat.y - 24,
+    2404, 18
+  );
+
+  ctx.drawImage(
+    sprImg,
+    0, 104, 2404, 18,
+    -groundscroll + 2404,
+    plat.y - 24,
+    2404, 18
+  );
+
+
 
   // obstacles
   ctx.drawImage(
@@ -383,7 +402,25 @@ function update() {
 
   // GROUND
   groundscroll += gamespeed;
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
+  if (groundscroll >= 2404) {
+    groundscroll = 0;
+  }
+  ctx.drawImage(
+    sprImg,
+    0, 104, 2404, 18,
+    -groundscroll,
+    plat.y - 24,
+    2404, 18
+  );
+
+  ctx.drawImage(
+    sprImg,
+    0, 104, 2404, 18,
+    -groundscroll + 2404,
+    plat.y - 24,
+    2404, 18
+  );
+
 
   // PLAYERS
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
