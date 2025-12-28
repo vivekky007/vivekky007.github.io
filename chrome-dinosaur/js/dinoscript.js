@@ -12,9 +12,12 @@ groundbool = false;
 frame = 0;
 bool = false;
 grav = 0.6;
-
+let jumpReqP1 = false;
+let jumpReqP2 = false;
 gamespeed = 0;
+let onG = false;
 let onG2 = false;
+
 
 multiS = -1;
 picS = 0;
@@ -164,15 +167,11 @@ window.onPeerMessage = (msg) => {
   if (!isHost) return;
 
   if (msg.type === "jump") {
-    if (msg.player === "A" && onG) {
-      p.yv = -p.jump;
-    }
-
-    if (msg.player === "B" && onG2) {
-      p2.yv = -p2.jump;
-    }
+    if (msg.player === "A") jumpReqP1 = true;
+    if (msg.player === "B") jumpReqP2 = true;
   }
 };
+
 
 
 
@@ -331,6 +330,18 @@ function update() {
 
   if (p.y + p.h > plat.y) { p.y = plat.y - p.h; onG = true; }
   if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h; onG2 = true; }
+
+    /* ---------- APPLY JUMP REQUESTS ---------- */
+  if (jumpReqP1 && onG) {
+    p.yv = -p.jump;
+    jumpReqP1 = false;
+  }
+
+  if (jumpReqP2 && onG2) {
+    p2.yv = -p2.jump;
+    jumpReqP2 = false;
+  }
+
 
   /* ---------- COLLISION ---------- */
   const hitBig =
