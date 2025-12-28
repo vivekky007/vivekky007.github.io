@@ -136,9 +136,14 @@ window.onRNMessage = function (msg) {
     p2.y = s.p2.y;
     p2.yv = s.p2.yv;
 
-    // obstacles
+    // obstacles (FULL STATE)
     obsS = s.obsS;
     obsB = s.obsB;
+
+    multiS = s.multiS;
+    multiB = s.multiB;
+    picS = s.picS;
+    picB = s.picB;
 
     // world
     groundscroll = s.groundscroll;
@@ -148,6 +153,7 @@ window.onRNMessage = function (msg) {
     p.score = s.score;
     isGameOver = s.isGameOver;
   }
+
 
 
 };
@@ -237,29 +243,14 @@ function drawGameOver() {
 }
 
 function drawOnly() {
+  // clear
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (obsS.on) {
-    obsS.scroll += gamespeed;
-    if (obsS.scroll > canvas.width + obsS.w * multiS) {
-      obsS.on = false;
-      multiS = -1;
-    }
-  }
-
-  if (obsB.on) {
-    obsB.scroll += gamespeed;
-    if (obsB.scroll > canvas.width + obsB.w * multiB) {
-      obsB.on = false;
-      multiB = -1;
-    }
-  }
-
+  // ground (client can animate ground visually)
   groundscroll += gamespeed;
-  if (groundscroll >= 2404) {
-    groundscroll = 0;
-  }
+  if (groundscroll >= 2404) groundscroll = 0;
+
   ctx.drawImage(
     sprImg,
     0, 104, 2404, 18,
@@ -276,26 +267,28 @@ function drawOnly() {
     2404, 18
   );
 
+  // obstacles — DRAW ONLY
+  if (obsS.on) {
+    ctx.drawImage(
+      sprImg, picS, 2,
+      obsS.w * multiS, obsS.h,
+      canvas.width - obsS.scroll,
+      obsS.y,
+      obsS.w * multiS,
+      obsS.h
+    );
+  }
 
-
-  // obstacles
-  ctx.drawImage(
-    sprImg, picS, 2,
-    obsS.w * multiS, obsS.h,
-    canvas.width - obsS.scroll,
-    obsS.y,
-    obsS.w * multiS,
-    obsS.h
-  );
-
-  ctx.drawImage(
-    sprImg, 652, 2,
-    obsB.w * multiB, obsB.h,
-    canvas.width - obsB.scroll,
-    obsB.y,
-    obsB.w * multiB,
-    obsB.h
-  );
+  if (obsB.on) {
+    ctx.drawImage(
+      sprImg, 652, 2,
+      obsB.w * multiB, obsB.h,
+      canvas.width - obsB.scroll,
+      obsB.y,
+      obsB.w * multiB,
+      obsB.h
+    );
+  }
 
   // players
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -444,16 +437,26 @@ function update() {
   /* ---------- SYNC TO CLIENT ---------- */
   sendToRN({
     type: "stateDino",
-    p1: { x: p.x, y: p.y, yv: p.yv },
-    p2: { x: p2.x, y: p2.y, yv: p2.yv },
-    obsS: { ...obsS },
-    obsB: { ...obsB },
-    groundscroll,
-    frame,
-    gamespeed,
-    score: p.score,
-    isGameOver
+    state: {
+      p1: { x: p.x, y: p.y, yv: p.yv },
+      p2: { x: p2.x, y: p2.y, yv: p2.yv },
+
+      obsS: { ...obsS },
+      obsB: { ...obsB },
+
+      multiS,
+      multiB,
+      picS,
+      picB,
+
+      groundscroll,
+      frame,
+      gamespeed,
+      score: p.score,
+      isGameOver
+    }
   });
+
 }
 
 
