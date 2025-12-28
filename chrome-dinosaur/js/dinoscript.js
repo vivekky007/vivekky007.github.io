@@ -328,8 +328,8 @@ function update() {
   onG = false;
   onG2 = false;
 
-  if (p.y + p.h > plat.y) { p.y = plat.y - p.h; onG = true; }
-  if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h; onG2 = true; }
+  if (p.y + p.h > plat.y) { p.y = plat.y - p.h; p.yv = 0;onG = true; }
+  if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h; p2.yv = 0;onG2 = true; }
 
     /* ---------- APPLY JUMP REQUESTS ---------- */
   if (jumpReqP1 && onG) {
