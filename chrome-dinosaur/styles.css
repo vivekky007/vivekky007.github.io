@@ -2,11 +2,26 @@ body {
   background: black;
   color: white;
   overflow: hidden;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+
+#gameUI {
+  position: fixed;
+  inset: 0;
+}
+
+#game {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .hidden {
   display: none;
-  height:100%
+ 
 }
 
 
@@ -53,7 +68,3 @@ body {
   color:black;
 }
 
-canvas {
-  width: 100%;
-  height:100%;
-}
