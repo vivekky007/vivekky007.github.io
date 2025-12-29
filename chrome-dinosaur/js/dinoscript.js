@@ -12,12 +12,9 @@ groundbool = false;
 frame = 0;
 bool = false;
 grav = 0.6;
-let jumpReqP1 = false;
-let jumpReqP2 = false;
-gamespeed = 0;
-let onG = false;
-let onG2 = false;
 
+gamespeed = 0;
+let onG2 = false;
 
 multiS = -1;
 picS = 0;
@@ -139,14 +136,9 @@ window.onRNMessage = function (msg) {
     p2.y = s.p2.y;
     p2.yv = s.p2.yv;
 
-    // obstacles (FULL STATE)
+    // obstacles
     obsS = s.obsS;
     obsB = s.obsB;
-
-    multiS = s.multiS;
-    multiB = s.multiB;
-    picS = s.picS;
-    picB = s.picB;
 
     // world
     groundscroll = s.groundscroll;
@@ -158,7 +150,6 @@ window.onRNMessage = function (msg) {
   }
 
 
-
 };
 
 
@@ -167,11 +158,15 @@ window.onPeerMessage = (msg) => {
   if (!isHost) return;
 
   if (msg.type === "jump") {
-    if (msg.player === "A") jumpReqP1 = true;
-    if (msg.player === "B") jumpReqP2 = true;
+    if (msg.player === "A" && onG) {
+      p.yv = -p.jump;
+    }
+
+    if (msg.player === "B" && onG2) {
+      p2.yv = -p2.jump;
+    }
   }
 };
-
 
 
 
@@ -242,52 +237,30 @@ function drawGameOver() {
 }
 
 function drawOnly() {
-  // clear
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // ground (client can animate ground visually)
-  groundscroll += gamespeed;
-  if (groundscroll >= 2404) groundscroll = 0;
+  // ground
+  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0, plat.y - 24, 2404, 18);
 
+  // obstacles
   ctx.drawImage(
-    sprImg,
-    0, 104, 2404, 18,
-    -groundscroll,
-    plat.y - 24,
-    2404, 18
+    sprImg, picS, 2,
+    obsS.w * multiS, obsS.h,
+    canvas.width - obsS.scroll,
+    obsS.y,
+    obsS.w * multiS,
+    obsS.h
   );
 
   ctx.drawImage(
-    sprImg,
-    0, 104, 2404, 18,
-    -groundscroll + 2404,
-    plat.y - 24,
-    2404, 18
+    sprImg, 652, 2,
+    obsB.w * multiB, obsB.h,
+    canvas.width - obsB.scroll,
+    obsB.y,
+    obsB.w * multiB,
+    obsB.h
   );
-
-  // obstacles — DRAW ONLY
-  if (obsS.on) {
-    ctx.drawImage(
-      sprImg, picS, 2,
-      obsS.w * multiS, obsS.h,
-      canvas.width - obsS.scroll,
-      obsS.y,
-      obsS.w * multiS,
-      obsS.h
-    );
-  }
-
-  if (obsB.on) {
-    ctx.drawImage(
-      sprImg, 652, 2,
-      obsB.w * multiB, obsB.h,
-      canvas.width - obsB.scroll,
-      obsB.y,
-      obsB.w * multiB,
-      obsB.h
-    );
-  }
 
   // players
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -303,31 +276,6 @@ function update() {
     if (isGameOver) drawGameOver();
     return;
   }
-
-  /* ---------- GROUND COLLISION ---------- */
-  onG = false;
-  onG2 = false;
-
-  if (p.y + p.h > plat.y) { p.y = plat.y - p.h;p.yv = 0;   onG = true; }
-  if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h;p2.yv = 0;   onG2 = true; }
-
-  /* ---------- APPLY JUMP REQUESTS ---------- */
-
-  if (jumpReqP1) {
-    if (onG) {
-      p.yv = -p.jump;
-      jumpReqP1 = false;
-    }
-  }
-
-
-  if (jumpReqP2) {
-    if (onG2) {
-      p2.yv = -p2.jump;
-      jumpReqP2 = false;
-    }
-  }
-
 
   /* ---------- PLAYER PHYSICS ---------- */
   if (!onG) p.yv += grav;
@@ -349,8 +297,12 @@ function update() {
     gamespeed = 7 + (p.score / 100);
   }
 
+  /* ---------- GROUND COLLISION ---------- */
+  onG = false;
+  onG2 = false;
 
-  
+  if (p.y + p.h > plat.y) { p.y = plat.y - p.h; onG = true; }
+  if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h; onG2 = true; }
 
   /* ---------- COLLISION ---------- */
   const hitBig =
@@ -370,6 +322,8 @@ function update() {
       p2box.y > obsS.y - p2box.h);
 
   if (hitBig || hitSmall) gameover();
+
+  /* ---------- OBSTACLES HOST LOGIC ---------- */
 
 /* ---------- OBSTACLES HOST LOGIC ---------- */
   if (!obsS.on && !obsB.on) {
@@ -415,25 +369,7 @@ function update() {
 
   // GROUND
   groundscroll += gamespeed;
-  if (groundscroll >= 2404) {
-    groundscroll = 0;
-  }
-  ctx.drawImage(
-    sprImg,
-    0, 104, 2404, 18,
-    -groundscroll,
-    plat.y - 24,
-    2404, 18
-  );
-
-  ctx.drawImage(
-    sprImg,
-    0, 104, 2404, 18,
-    -groundscroll + 2404,
-    plat.y - 24,
-    2404, 18
-  );
-
+  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
 
   // PLAYERS
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
@@ -457,26 +393,16 @@ function update() {
   /* ---------- SYNC TO CLIENT ---------- */
   sendToRN({
     type: "stateDino",
-    state: {
-      p1: { x: p.x, y: p.y, yv: p.yv },
-      p2: { x: p2.x, y: p2.y, yv: p2.yv },
-
-      obsS: { ...obsS },
-      obsB: { ...obsB },
-
-      multiS,
-      multiB,
-      picS,
-      picB,
-
-      groundscroll,
-      frame,
-      gamespeed,
-      score: p.score,
-      isGameOver
-    }
+    p1: { x: p.x, y: p.y, yv: p.yv },
+    p2: { x: p2.x, y: p2.y, yv: p2.yv },
+    obsS: { ...obsS },
+    obsB: { ...obsB },
+    groundscroll,
+    frame,
+    gamespeed,
+    score: p.score,
+    isGameOver
   });
-
 }
 
 
