@@ -140,6 +140,11 @@ window.onRNMessage = function (msg) {
     obsS = s.obsS;
     obsB = s.obsB;
 
+    multiS = s.multiS;
+    multiB = s.multiB;
+    picS = s.picS;
+    picB = s.picB;
+
     // world
     groundscroll = s.groundscroll;
     frame = s.frame;
@@ -240,28 +245,48 @@ function drawOnly() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // ground
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, 0, plat.y - 24, 2404, 18);
+    // ground (client can animate ground visually)
+  groundscroll += gamespeed;
+  if (groundscroll >= 2404) groundscroll = 0;
 
-  // obstacles
   ctx.drawImage(
-    sprImg, picS, 2,
-    obsS.w * multiS, obsS.h,
-    canvas.width - obsS.scroll,
-    obsS.y,
-    obsS.w * multiS,
-    obsS.h
+    sprImg,
+    0, 104, 2404, 18,
+    -groundscroll,
+    plat.y - 24,
+    2404, 18
   );
 
   ctx.drawImage(
-    sprImg, 652, 2,
-    obsB.w * multiB, obsB.h,
-    canvas.width - obsB.scroll,
-    obsB.y,
-    obsB.w * multiB,
-    obsB.h
+    sprImg,
+    0, 104, 2404, 18,
+    -groundscroll + 2404,
+    plat.y - 24,
+    2404, 18
   );
 
+  // obstacles — DRAW ONLY
+  if (obsS.on) {
+    ctx.drawImage(
+      sprImg, picS, 2,
+      obsS.w * multiS, obsS.h,
+      canvas.width - obsS.scroll,
+      obsS.y,
+      obsS.w * multiS,
+      obsS.h
+    );
+  }
+
+  if (obsB.on) {
+    ctx.drawImage(
+      sprImg, 652, 2,
+      obsB.w * multiB, obsB.h,
+      canvas.width - obsB.scroll,
+      obsB.y,
+      obsB.w * multiB,
+      obsB.h
+    );
+  }
   // players
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
   ctx.drawImage(sprImg, frame, 0, 88, 94, p2.x, p2.y, p2.w, p2.h);
@@ -369,8 +394,24 @@ function update() {
 
   // GROUND
   groundscroll += gamespeed;
-  ctx.drawImage(sprImg, 0, 104, 2404, 18, -groundscroll + tempstart, plat.y - 24, 2404, 18);
+  if (groundscroll >= 2404) {
+    groundscroll = 0;
+  }
+  ctx.drawImage(
+    sprImg,
+    0, 104, 2404, 18,
+    -groundscroll,
+    plat.y - 24,
+    2404, 18
+  );
 
+  ctx.drawImage(
+    sprImg,
+    0, 104, 2404, 18,
+    -groundscroll + 2404,
+    plat.y - 24,
+    2404, 18
+  );
   // PLAYERS
   ctx.drawImage(sprImg, frame, 0, 88, 94, p.x, p.y, p.w, p.h);
   ctx.drawImage(sprImg, frame, 0, 88, 94, p2.x, p2.y, p2.w, p2.h);
@@ -393,15 +434,24 @@ function update() {
   /* ---------- SYNC TO CLIENT ---------- */
   sendToRN({
     type: "stateDino",
-    p1: { x: p.x, y: p.y, yv: p.yv },
-    p2: { x: p2.x, y: p2.y, yv: p2.yv },
-    obsS: { ...obsS },
-    obsB: { ...obsB },
-    groundscroll,
-    frame,
-    gamespeed,
-    score: p.score,
-    isGameOver
+    state: {
+      p1: { x: p.x, y: p.y, yv: p.yv },
+      p2: { x: p2.x, y: p2.y, yv: p2.yv },
+
+      obsS: { ...obsS },
+      obsB: { ...obsB },
+
+      multiS,
+      multiB,
+      picS,
+      picB,
+
+      groundscroll,
+      frame,
+      gamespeed,
+      score: p.score,
+      isGameOver
+    }
   });
 }
 
