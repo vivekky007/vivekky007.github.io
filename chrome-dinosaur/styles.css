@@ -5,6 +5,8 @@ html,body {
   overflow: hidden;
   height:100%;
   width:100%;
+  justify-content: center;
+  align-items: center;
 }
 
 .hidden {
@@ -43,15 +45,6 @@ html,body {
 #startBtn {
   display: none;
 }
-
-#gameUI {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
 
 /* Status */
 #status {
