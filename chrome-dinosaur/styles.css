@@ -5,8 +5,7 @@ html,body {
   overflow: hidden;
   height:100%;
   width:100%;
-  justify-content: center;
-  align-items: center;
+
 }
 
 .hidden {
@@ -55,6 +54,13 @@ html,body {
   z-index: 3000;
   font-size: 18px;
   color:black;
+}
+#gameUI {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 
