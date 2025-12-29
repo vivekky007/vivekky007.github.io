@@ -1,5 +1,5 @@
 
-body {
+html,body {
   background: white;
   color: white;
   overflow: hidden;
@@ -44,6 +44,15 @@ body {
   display: none;
 }
 
+#gameUI {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
 /* Status */
 #status {
   position: fixed;
@@ -52,6 +61,7 @@ body {
   transform: translateX(-50%);
   z-index: 3000;
   font-size: 18px;
+  color:black;
 }
 
 
