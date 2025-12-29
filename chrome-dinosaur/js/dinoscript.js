@@ -304,6 +304,31 @@ function update() {
     return;
   }
 
+  /* ---------- GROUND COLLISION ---------- */
+  onG = false;
+  onG2 = false;
+
+  if (p.y + p.h > plat.y) { p.y = plat.y - p.h;p.yv = 0;   onG = true; }
+  if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h;p2.yv = 0;   onG2 = true; }
+
+  /* ---------- APPLY JUMP REQUESTS ---------- */
+
+  if (jumpReqP1) {
+    if (onG) {
+      p.yv = -p.jump;
+      jumpReqP1 = false;
+    }
+  }
+
+
+  if (jumpReqP2) {
+    if (onG2) {
+      p2.yv = -p2.jump;
+      jumpReqP2 = false;
+    }
+  }
+
+
   /* ---------- PLAYER PHYSICS ---------- */
   if (!onG) p.yv += grav;
   p.y += p.yv;
@@ -324,28 +349,8 @@ function update() {
     gamespeed = 7 + (p.score / 100);
   }
 
-  /* ---------- GROUND COLLISION ---------- */
-  onG = false;
-  onG2 = false;
-
-  if (p.y + p.h > plat.y) { p.y = plat.y - p.h;p.yv = 0;   onG = true; }
-  if (p2.y + p2.h > plat.y) { p2.y = plat.y - p2.h;p2.yv = 0;   onG2 = true; }
-
-    /* ---------- APPLY JUMP REQUESTS ---------- */
-  if (jumpReqP1 && onG) {
-    p.yv = -p.jump;
-    jumpReqP1 = false;
-  }
-
-
-  if (jumpReqP2 && onG2) {
-    p2.yv = -p2.jump;
-    jumpReqP2 = false;
-  }
 
   
-  
-
 
   /* ---------- COLLISION ---------- */
   const hitBig =
