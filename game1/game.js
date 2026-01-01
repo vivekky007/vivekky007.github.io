@@ -14,7 +14,7 @@
 
 
   function showGameScreen() {
-    const login = document.getElementById("loginScreen");
+    const login = document.getElementById("lobby");
     const game = document.getElementById("gameScreen");
     if (login) login.style.display = "none";
     if (game) game.style.display = "block";
@@ -503,4 +503,5 @@
   init();
   window.__snake_restart = restart;
 })();
+
 
