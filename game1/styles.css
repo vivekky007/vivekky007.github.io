@@ -91,4 +91,32 @@ h3 { margin: 0 0 12px 0; }
   #gameCanvas { width: 320px; height: 320px; }
   #touchControls { flex-direction:row; }
 }
+#lobby {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 5000;
+}
+
+#lobby input {
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  text-align: center;
+}
+
+#lobby button {
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #444;
+  color: white;
+  font-size: 18px;
+}
+
 
