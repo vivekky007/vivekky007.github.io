@@ -508,6 +508,9 @@ function tryJump() {
   }
 
   if (!isHost) {
+    if (onG2) {
+      p2.yv = -p2.jump;
+    }
     sendToRN({
       type: "jump",
       player: playerRole
