@@ -245,7 +245,9 @@ function drawOnly() {
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-
+    // ground (client can animate ground visually)
+  groundscroll += gamespeed;
+  if (groundscroll >= 2404) groundscroll = 0;
 
   ctx.drawImage(
     sprImg,
@@ -506,11 +508,6 @@ function tryJump() {
   }
 
   if (!isHost) {
-
-    if (onG2) {
-      p2.yv = -p2.jump;
-      onG2 = false;
-    }
     sendToRN({
       type: "jump",
       player: playerRole
