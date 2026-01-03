@@ -539,48 +539,9 @@ var getOpenTiles = function(tile,dirEnum) {
 var isNextTileFloor = function(tile,dir) {
     return map.isFloorTile(tile.x+dir.x,tile.y+dir.y);
 };
-// Swipe support (for mobile / WebView)
 
-var SWIPE_THRESHOLD = 30;
-var touchStartX = 0;
-var touchStartY = 0;
 
-function initSwipeControls() {
-    var canvas = document.getElementById("canvas");
-    if (!canvas) return;
 
-    canvas.addEventListener("touchstart", function (e) {
-        var t = e.changedTouches[0];
-        touchStartX = t.clientX;
-        touchStartY = t.clientY;
-    }, { passive: true });
-
-    canvas.addEventListener("touchend", function (e) {
-        var t = e.changedTouches[0];
-        var dx = t.clientX - touchStartX;
-        var dy = t.clientY - touchStartY;
-
-        if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
-
-        if (Math.abs(dx) > Math.abs(dy)) {
-            desiredDirEnum = dx > 0 ? DIR_RIGHT : DIR_LEFT;
-        } else {
-            desiredDirEnum = dy > 0 ? DIR_DOWN : DIR_UP;
-        }
-    }, { passive: true });
-}
-
-// helper for Player update loop
-var consumeDesiredDirection = function () {
-    var d = desiredDirEnum;
-    desiredDirEnum = null;
-    return d;
-};
-
-// auto-init
-if (typeof window !== "undefined") {
-    window.addEventListener("load", initSwipeControls);
-}
 //@line 1 "src/Map.js"
 //////////////////////////////////////////////////////////////////////////////////////
 // Map
