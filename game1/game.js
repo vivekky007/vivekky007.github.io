@@ -1,3 +1,4 @@
+
 // snake.net.js
 (() => {
   /* ------- Helpers ------- */
@@ -489,12 +490,12 @@
 
 
   document.getElementById("joinRoomBtn").addEventListener("click", () => {
-    const id = document.getElementById("joinRoomInput").value;
+    const id = document.getElementById("roomid").value;
     joinRoom(id);
   });
 
   document.getElementById("createRoomBtn").addEventListener("click", () => {
-    const id = document.getElementById("createRoomInput").value;
+    const id = document.getElementById("roomid").value;
     createRoom(id);
   });
 
